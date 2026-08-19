@@ -17,13 +17,11 @@ const PALETTES = [
 ];
 
 const ARTWORKS = [
-  { id: 0, room: 0, wall: 'left', palette: 0, title: 'Untitled Study No. 3', artist: 'Margarita', meta: 'Acrylic on canvas, 2023', note: 'An early piece in a longer series exploring warmth against restraint.', featured: true },
-  { id: 1, room: 0, wall: 'right', palette: 1, title: 'Quiet Harbour', artist: 'Margarita', meta: 'Oil on linen, 2021', note: 'Painted from memory, long after the coastline itself had changed.', featured: true },
-  { id: 2, room: 1, wall: 'left', palette: 2, title: 'Interior Weather', artist: 'Margarita', meta: 'Mixed media, 2024', note: 'Described as a room with its own private climate.', featured: true },
-  { id: 3, room: 1, wall: 'right', palette: 3, title: 'Correspondence No. 7', artist: 'Margarita', meta: 'Ink and gouache, 2020', note: 'Part of a series of unsent letters rendered as colour.', featured: false },
-  { id: 4, room: 2, wall: 'left', palette: 4, title: 'Static Bloom', artist: 'Margarita', meta: 'Acrylic on panel, 2022', note: 'Made in a single overnight sitting, never reworked since.', featured: true },
-  { id: 5, room: 2, wall: 'right', palette: 5, title: 'Low Tide Archive', artist: 'Margarita', meta: 'Oil on canvas, 2019', note: 'One of three surviving canvases from a studio fire the following year.', featured: false },
-  { id: 6, room: 2, wall: 'back', palette: 6, title: 'The Long Room', artist: 'Margarita', meta: 'Oil and pigment on canvas, 2024', note: 'The largest work in the collection, and the newest.', featured: false },
+  { id: 0, room: 0, wall: 'left', image: '/paintings/behind-my-hand.jpg', aspect: 1058 / 732, title: 'Behind My Hand', artist: 'Margarita', meta: 'Oil on canvas', note: 'A study in obscured self-portraiture — colour standing in for what the hand hides.', featured: true },
+  { id: 1, room: 0, wall: 'right', image: '/paintings/river-fable.jpg', aspect: 1076 / 744, title: 'River Fable', artist: 'Margarita', meta: 'Acrylic on canvas', note: 'A dense, folkloric scene — figure, fish, and foliage read as one continuous body.', featured: true },
+  { id: 2, room: 1, wall: 'left', image: '/paintings/nocturne.jpg', aspect: 954 / 663, title: 'Nocturne', artist: 'Margarita', meta: 'Digital painting', note: 'A single wing rendered in close, patient detail against the dark.', featured: true },
+  { id: 3, room: 1, wall: 'right', image: '/paintings/the-procession.jpg', aspect: 1101 / 619, title: 'The Procession', artist: 'Margarita', meta: 'Oil on canvas', note: 'A crowd dissolves into colour and rhythm — movement painted as pattern.', featured: true },
+  { id: 4, room: 2, wall: 'back', image: '/paintings/martyrs-square.jpg', aspect: 1020 / 510, title: "Martyrs' Square", artist: 'Margarita', meta: 'Oil on canvas', note: 'Beirut, mid-uprising — the city\'s landmarks held inside a sky full of colour and flight.', featured: false },
 ];
 
 const CONTACT_EMAIL = 'hello@studiomargarita.com'; // placeholder — swap for the real inbox
@@ -98,10 +96,10 @@ function generatePlacardCanvas(title, artist, meta) {
   const ctx = canvas.getContext('2d');
   ctx.textAlign = 'center';
   ctx.fillStyle = '#1a1a1a';
-  ctx.font = 'italic 40px Georgia, "Times New Roman", serif';
+  ctx.font = '600 38px "Space Grotesk", system-ui, sans-serif';
   ctx.fillText(title, w / 2, 76);
   ctx.font = '600 22px system-ui, sans-serif';
-  ctx.fillStyle = '#7a2530';
+  ctx.fillStyle = '#6B1F30';
   ctx.fillText(artist.toUpperCase(), w / 2, 118);
   ctx.font = '20px system-ui, sans-serif';
   ctx.fillStyle = '#8a887f';
@@ -214,6 +212,8 @@ function MuseumTour({ onEnquire }) {
 
     const collidableBoxes = [];
     const artMeshes = [];
+    const placardMeshes = [];
+    const textureLoader = new THREE.TextureLoader();
 
     function buildWallX(cx, cz, tX, lenZ) {
       const wain = new THREE.Mesh(new THREE.BoxGeometry(tX, WAINSCOT_H, lenZ), wainscotMat);
@@ -284,7 +284,7 @@ function MuseumTour({ onEnquire }) {
       const dirX = info.wall === 'left' ? 1 : info.wall === 'right' ? -1 : 0;
       const dirZ = info.wall === 'back' ? 1 : 0;
       const w = info.wall === 'back' ? ART_W * 1.6 : ART_W;
-      const hgt = info.wall === 'back' ? ART_H * 1.6 : ART_H;
+      const hgt = w / (info.aspect || (ART_W / ART_H));
 
       const frame = new THREE.Mesh(new THREE.BoxGeometry(
         info.wall === 'back' ? w + 0.16 : 0.06,
@@ -297,7 +297,8 @@ function MuseumTour({ onEnquire }) {
         hgt + 0.04,
         info.wall === 'back' ? 0.02 : w + 0.04
       ), linerMat);
-      const artTex = new THREE.CanvasTexture(generateArtCanvas(info.palette, info.id));
+      const artTex = textureLoader.load(info.image);
+      if (THREE.SRGBColorSpace) artTex.colorSpace = THREE.SRGBColorSpace; else artTex.encoding = THREE.sRGBEncoding;
       const artMat = new THREE.MeshStandardMaterial({ map: artTex, roughness: 0.8 });
       const art = new THREE.Mesh(new THREE.PlaneGeometry(w, hgt), artMat);
       art.rotation.y = rotY; art.userData.info = info; artMeshes.push(art);
@@ -313,6 +314,7 @@ function MuseumTour({ onEnquire }) {
       art.position.set(x + dirX * 0.07, artY, z + dirZ * 0.07);
       placard.position.set(x + dirX * 0.07, placardY, z + dirZ * 0.07);
       scene.add(frame, liner, art, placard);
+      placardMeshes.push({ mesh: placard, info });
 
       const spot = new THREE.SpotLight(0xfff2df, 2.1, 11, 0.5, 0.6);
       spot.position.set(x + spotOffsetX, WALL_H - 0.6, z + spotOffsetZ + (info.wall === 'back' ? 0 : 0.6));
@@ -331,6 +333,15 @@ function MuseumTour({ onEnquire }) {
       fixtureGlow.position.set(spot.position.x, WALL_H - 0.1, spot.position.z);
       scene.add(fixtureGlow);
     });
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.load('600 38px "Space Grotesk"').then(() => document.fonts.ready).then(() => {
+        placardMeshes.forEach(({ mesh, info }) => {
+          mesh.material.map = new THREE.CanvasTexture(generatePlacardCanvas(info.title, info.artist, info.meta));
+          mesh.material.needsUpdate = true;
+        });
+      }).catch(() => {});
+    }
 
 
     const st = stateRef.current;
@@ -471,7 +482,7 @@ function MuseumTour({ onEnquire }) {
       <div ref={mountRef} style={{ position: 'absolute', inset: 0, cursor: started ? (active ? 'default' : 'grab') : 'default' }} />
 
       {started && !active && (
-        <div style={{ position: 'absolute', top: '50%', left: '50%', width: 6, height: 6, marginLeft: -3, marginTop: -3, borderRadius: '50%', background: hovered ? '#7a2530' : 'rgba(26,26,26,0.4)', transition: 'background 120ms', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '50%', left: '50%', width: 6, height: 6, marginLeft: -3, marginTop: -3, borderRadius: '50%', background: hovered ? '#6B1F30' : 'rgba(26,26,26,0.4)', transition: 'background 120ms', pointerEvents: 'none' }} />
       )}
 
       {started && !active && (
@@ -497,8 +508,8 @@ function MuseumTour({ onEnquire }) {
 
       {!started && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.92))', color: '#1a1a1a', textAlign: 'center', padding: 24 }}>
-          <div style={{ fontSize: 11, letterSpacing: '3px', color: '#7a2530', marginBottom: 10 }}>THE VIRTUAL MUSEUM</div>
-          <div style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontStyle: 'italic', fontSize: 'clamp(24px,4vw,36px)', marginBottom: 14 }}>Walk through the collection</div>
+          <div style={{ fontSize: 11, letterSpacing: '3px', color: '#6B1F30', marginBottom: 10 }}>THE VIRTUAL MUSEUM</div>
+          <div style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", fontWeight: 600, fontSize: 'clamp(24px,4vw,36px)', marginBottom: 14 }}>Walk through the collection</div>
           <div style={{ maxWidth: 400, fontSize: 13.5, color: '#6b6b64', lineHeight: 1.7, marginBottom: 22 }}>
             Seven pieces across three rooms. WASD or arrows to walk, drag to look around, click a piece to view it.
           </div>
@@ -510,9 +521,9 @@ function MuseumTour({ onEnquire }) {
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, background: 'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.98) 26%)', paddingTop: 60, paddingBottom: 22, display: 'flex', justifyContent: 'center' }}>
           <div style={{ width: 'min(480px, 88%)', textAlign: 'center', position: 'relative' }}>
             <button onClick={closePanel} style={{ position: 'absolute', top: -42, right: 0, width: 32, height: 32, borderRadius: '50%', border: '1px solid #e6e3da', background: '#fff', color: '#1a1a1a', fontSize: 15, cursor: 'pointer' }}>×</button>
-            <div style={{ fontSize: 11, letterSpacing: '2px', color: '#7a2530', marginBottom: 6 }}>ROOM {active.room + 1} OF {ROOMS}</div>
-            <div style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontStyle: 'italic', fontSize: 22, marginBottom: 4 }}>{active.title}</div>
-            <div style={{ fontSize: 12, letterSpacing: '1.5px', color: '#7a2530', textTransform: 'uppercase', marginBottom: 3 }}>{active.artist}</div>
+            <div style={{ fontSize: 11, letterSpacing: '2px', color: '#6B1F30', marginBottom: 6 }}>ROOM {active.room + 1} OF {ROOMS}</div>
+            <div style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", fontWeight: 600, fontSize: 22, marginBottom: 4 }}>{active.title}</div>
+            <div style={{ fontSize: 12, letterSpacing: '1.5px', color: '#6B1F30', textTransform: 'uppercase', marginBottom: 3 }}>{active.artist}</div>
             <div style={{ fontSize: 12, color: '#8a887f', marginBottom: 12 }}>{active.meta}</div>
             <div style={{ fontSize: 13, color: '#4a4a45', lineHeight: 1.6, maxWidth: 400, margin: '0 auto 16px' }}>{active.note}</div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -530,17 +541,144 @@ function MuseumTour({ onEnquire }) {
    2D PAINTING CARD
    ============================================================ */
 function PaintingCard({ artwork, onEnquire }) {
-  const dataUrl = useMemo(() => generateArtCanvas(artwork.palette, artwork.id, 400, 300).toDataURL(), [artwork]);
+  const [arOpen, setArOpen] = useState(false);
   return (
     <div className="card">
       <div className="card-frame">
-        <img src={dataUrl} alt={artwork.title} />
+        <img src={artwork.image} alt={artwork.title} loading="lazy" />
+        <img src="/assets/watermark.svg" alt="" className="card-watermark" />
       </div>
       <div className="card-title">{artwork.title}</div>
       <div className="card-artist">{artwork.artist}</div>
-      <div className="card-meta">{artwork.meta}</div>
+      <div className="card-meta-row">
+        <span className="card-meta">{artwork.meta}</span>
+        <span className="tag">Enquire</span>
+      </div>
       <p className="card-note">{artwork.note}</p>
-      <button className="btn-outline btn-sm" onClick={() => onEnquire(artwork)}>Enquire to purchase</button>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button className="btn-outline btn-sm" onClick={() => onEnquire(artwork)}>Enquire to purchase</button>
+        <button className="btn-outline btn-sm" onClick={() => setArOpen(true)}>View in your room</button>
+      </div>
+      {arOpen && <TryInRoom artwork={artwork} onClose={() => setArOpen(false)} />}
+    </div>
+  );
+}
+
+/* ============================================================
+   TRY IN YOUR ROOM — camera preview with a draggable, resizable
+   painting overlay (MVP: no real surface tracking, just a live
+   camera feed behind a positionable image)
+   ============================================================ */
+function TryInRoom({ artwork, onClose }) {
+  const videoRef = useRef(null);
+  const [error, setError] = useState(null);
+  const [ready, setReady] = useState(false);
+  const stateRef = useRef({ x: 0, y: 0, scale: 1, dragging: false, lastX: 0, lastY: 0, pinchDist: null });
+  const imgRef = useRef(null);
+
+  useEffect(() => {
+    let stream;
+    (async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false,
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+          setReady(true);
+        }
+      } catch (err) {
+        setError('Camera access was blocked or unavailable. Check your browser\'s camera permission for this site and try again.');
+      }
+    })();
+    return () => { if (stream) stream.getTracks().forEach((t) => t.stop()); };
+  }, []);
+
+  useEffect(() => {
+    const applyTransform = () => {
+      if (imgRef.current) {
+        const s = stateRef.current;
+        imgRef.current.style.transform = `translate(-50%, -50%) translate(${s.x}px, ${s.y}px) scale(${s.scale})`;
+      }
+    };
+    const dist = (t1, t2) => Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+
+    const onDown = (e) => {
+      const p = e.touches ? e.touches[0] : e;
+      stateRef.current.dragging = true;
+      stateRef.current.lastX = p.clientX; stateRef.current.lastY = p.clientY;
+      if (e.touches && e.touches.length === 2) stateRef.current.pinchDist = dist(e.touches[0], e.touches[1]);
+    };
+    const onMove = (e) => {
+      const s = stateRef.current;
+      if (e.touches && e.touches.length === 2) {
+        const d = dist(e.touches[0], e.touches[1]);
+        if (s.pinchDist) s.scale = Math.max(0.3, Math.min(3, s.scale * (d / s.pinchDist)));
+        s.pinchDist = d;
+        applyTransform();
+        return;
+      }
+      if (!s.dragging) return;
+      const p = e.touches ? e.touches[0] : e;
+      s.x += p.clientX - s.lastX; s.y += p.clientY - s.lastY;
+      s.lastX = p.clientX; s.lastY = p.clientY;
+      applyTransform();
+    };
+    const onUp = () => { stateRef.current.dragging = false; stateRef.current.pinchDist = null; };
+    const onWheel = (e) => {
+      e.preventDefault();
+      stateRef.current.scale = Math.max(0.3, Math.min(3, stateRef.current.scale * (1 - e.deltaY * 0.001)));
+      applyTransform();
+    };
+
+    const el = imgRef.current;
+    el?.addEventListener('mousedown', onDown);
+    el?.addEventListener('touchstart', onDown, { passive: true });
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchend', onUp);
+    el?.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      el?.removeEventListener('mousedown', onDown);
+      el?.removeEventListener('touchstart', onDown);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchend', onUp);
+      el?.removeEventListener('wheel', onWheel);
+    };
+  }, [ready]);
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#000' }}>
+      <video ref={videoRef} playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+      {ready && !error && (
+        <img
+          ref={imgRef}
+          src={artwork.image}
+          alt={artwork.title}
+          draggable={false}
+          style={{
+            position: 'absolute', top: '50%', left: '50%', width: 220, touchAction: 'none',
+            transform: 'translate(-50%, -50%)', boxShadow: '0 12px 30px rgba(0,0,0,0.5)',
+            border: '10px solid #161514', cursor: 'grab', userSelect: 'none',
+          }}
+        />
+      )}
+      <div style={{ position: 'absolute', top: 16, left: 16, right: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div className="tour-chip" style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none' }}>
+          {ready ? 'Drag to move · pinch or scroll to resize' : 'Starting camera…'}
+        </div>
+        <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 18, cursor: 'pointer' }}>×</button>
+      </div>
+      {error && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+          <p style={{ color: '#fff', textAlign: 'center', maxWidth: 320, fontSize: 14, lineHeight: 1.6 }}>{error}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -553,7 +691,8 @@ function Nav({ tab, setTab }) {
   return (
     <header className="nav">
       <div className="nav-inner">
-        <div className="logo" onClick={() => setTab('studio')}>{BRAND}</div>
+        <img src="/assets/logo-lockup.svg" alt={BRAND} className="logo-lockup" onClick={() => setTab('studio')} />
+        <img src="/assets/symbol.svg" alt={BRAND} className="logo-symbol" onClick={() => setTab('studio')} />
         <nav className="tabs">
           {tabs.map(([key, label]) => (
             <button key={key} className={'tab' + (tab === key ? ' active' : '')} onClick={() => setTab(key)}>{label}</button>
@@ -567,14 +706,16 @@ function Nav({ tab, setTab }) {
 /* ============================================================
    STUDIO TAB (home)
    ============================================================ */
-function StudioTab({ onEnquire }) {
+function StudioTab({ onEnquire, goMargarita }) {
   const tourRef = useRef(null);
   const featured = ARTWORKS.filter((a) => a.featured);
   return (
     <>
       <section className="hero">
-        <div className="eyebrow">The virtual museum</div>
-        <h1>A gallery you can walk through</h1>
+        <div className="crop hero-crop"><div className="crop-b" />
+          <div className="eyebrow">The virtual museum</div>
+          <h1>A gallery you can walk through</h1>
+        </div>
         <p className="hero-sub">Step inside a full 3D museum of the collection before you buy a single piece.</p>
         <button className="btn-solid" onClick={() => tourRef.current?.scrollIntoView({ behavior: 'smooth' })}>Enter the virtual museum</button>
       </section>
@@ -587,12 +728,14 @@ function StudioTab({ onEnquire }) {
         </p>
       </section>
 
-      <section className="section-wide" ref={tourRef}>
-        <div className="tour-shell"><MuseumTour onEnquire={onEnquire} /></div>
+      <section className="section-wide section-rule" ref={tourRef}>
+        <div className="crop"><div className="crop-b" />
+          <div className="tour-shell"><MuseumTour onEnquire={onEnquire} /></div>
+        </div>
         <p className="caption">Walk through with WASD or arrows, drag to look around, click any piece to view and enquire.</p>
       </section>
 
-      <section className="section-wide">
+      <section className="section-wide section-rule">
         <div className="section-head">
           <h2>A closer look</h2>
           <button className="link" onClick={() => document.dispatchEvent(new CustomEvent('go-artists'))}>View the full collection →</button>
@@ -601,6 +744,12 @@ function StudioTab({ onEnquire }) {
           {featured.map((a) => <PaintingCard key={a.id} artwork={a} onEnquire={onEnquire} />)}
         </div>
       </section>
+
+      <div className="poster">
+        <div className="eyebrow">Talk to Margarita</div>
+        <h2>Not sure which piece is right for the wall?</h2>
+        <button className="btn-solid" onClick={goMargarita}>Get in touch</button>
+      </div>
     </>
   );
 }
@@ -655,7 +804,7 @@ function MargaritaTab({ prefill }) {
     <section className="section-narrow" style={{ paddingTop: 56 }}>
       <div className="margarita-grid">
         <div>
-          <div className="portrait-frame"><img src="/margarita/portrait.jpg" alt="Margarita" /></div>
+          <div className="crop portrait-frame"><div className="crop-b" /><img src="/margarita/portrait.jpg" alt="Margarita" /></div>
         </div>
         <div>
           <div className="eyebrow">About</div>
@@ -706,63 +855,123 @@ export default function App() {
   return (
     <div className="site">
       <style>{`
-        .site { --bg:#ffffff; --bg-soft:#faf8f4; --ink:#1a1a1a; --ink-soft:#6b6b64; --accent:#7a2530; --accent-soft:#f4e8e7; --border:#e6e3da;
-          background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,sans-serif; min-height:100vh; }
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+        .site { --bg:#f6f4f4; --surface:#ffffff; --ink:#1a1416; --ink-soft:#6f6266; --rule:#d6cfd0;
+          --accent:#6b1f30; --accent-deep:#4a1420; --accent-tint:#f2e7ea; --rose:#e0c3ca; --radius:0;
+          background:var(--bg); color:var(--ink); font-family:'Space Grotesk', system-ui, -apple-system, sans-serif; min-height:100vh; }
+        .site * { box-sizing:border-box; }
         @keyframes tourPulse { 0%,100%{opacity:.6} 50%{opacity:1} }
-        .nav { position:sticky; top:0; z-index:20; background:rgba(255,255,255,0.92); backdrop-filter:blur(8px); border-bottom:1px solid var(--border); }
-        .nav-inner { max-width:1080px; margin:0 auto; padding:16px 24px; display:flex; align-items:center; justify-content:space-between; }
-        .logo { font-family:Georgia,'Times New Roman',serif; font-style:italic; font-size:19px; cursor:pointer; }
+
+        /* crop-mark bracket wrapper — the brand's signature corner motif */
+        .crop { position:relative; padding:32px; }
+        .crop::before, .crop::after, .crop .crop-b::before, .crop .crop-b::after {
+          content:''; position:absolute; width:22px; height:22px; border-color:var(--accent); border-style:solid; border-width:0; }
+        .crop::before { left:0; top:0; border-left-width:3px; border-top-width:3px; }
+        .crop::after { right:0; top:0; border-right-width:3px; border-top-width:3px; }
+        .crop .crop-b { position:absolute; inset:0; pointer-events:none; }
+        .crop .crop-b::before { left:0; bottom:0; border-left-width:3px; border-bottom-width:3px; }
+        .crop .crop-b::after { right:0; bottom:0; border-right-width:3px; border-bottom-width:3px; }
+
+        .tag { display:inline-flex; align-items:center; font-size:10px; font-weight:500; letter-spacing:0.16em;
+          text-transform:uppercase; padding:5px 9px; border:2px solid var(--accent); color:var(--accent); background:var(--accent-tint); }
+        .tag-quiet { border-color:var(--rule); color:var(--ink-soft); background:transparent; }
+
+        .nav { position:sticky; top:0; z-index:20; background:var(--bg); border-bottom:2px solid var(--ink); }
+        .nav-inner { max-width:1120px; margin:0 auto; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; }
+        .logo-lockup { height:42px; width:auto; display:block; cursor:pointer; }
+        .logo-symbol { display:none; height:30px; width:30px; cursor:pointer; }
         .tabs { display:flex; gap:28px; }
-        .tab { background:none; border:none; font-size:13px; letter-spacing:0.5px; color:var(--ink-soft); cursor:pointer; padding:6px 0; border-bottom:2px solid transparent; }
-        .tab.active { color:var(--ink); border-bottom-color:var(--accent); }
-        .hero { max-width:720px; margin:0 auto; text-align:center; padding:72px 24px 40px; }
-        .eyebrow { font-size:11px; letter-spacing:3px; color:var(--accent); margin-bottom:14px; }
-        .hero h1 { font-family:Georgia,'Times New Roman',serif; font-style:italic; font-size:clamp(30px,5vw,48px); font-weight:400; margin:0 0 14px; }
-        .hero-sub { color:var(--ink-soft); font-size:15px; margin:0 0 26px; }
+        .tab { background:none; border:none; font-size:12px; font-weight:500; letter-spacing:0.14em; text-transform:uppercase;
+          color:var(--ink-soft); cursor:pointer; padding:4px 0 6px; box-shadow: inset 0 -2px 0 transparent; }
+        .tab:hover, .tab.active { color:var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+        @media (max-width:520px){ .logo-lockup{ display:none; } .logo-symbol{ display:block; } .tabs{ gap:16px; } }
+
+        .section-rule { border-top:2px solid var(--ink); padding-top:56px; }
+        .hero { max-width:760px; margin:0 auto; text-align:center; padding:64px 24px 44px; }
+        .hero-crop { display:inline-block; }
+        .eyebrow { font-size:11px; font-weight:500; letter-spacing:0.24em; text-transform:uppercase; color:var(--accent); margin-bottom:16px; }
+        .hero h1 { font-family:inherit; font-weight:500; letter-spacing:-0.04em; line-height:0.98; font-size:clamp(32px,6vw,60px); margin:0 0 16px; }
+        .hero-sub { color:var(--ink-soft); font-size:16px; margin:0 0 28px; }
         .section-narrow { max-width:640px; margin:0 auto; padding:20px 24px; }
-        .section-wide { max-width:1080px; margin:0 auto; padding:40px 24px; }
-        .lede { font-size:15px; line-height:1.75; color:var(--ink-soft); text-align:center; }
-        .bio p { font-size:14.5px; line-height:1.75; color:var(--ink-soft); text-align:left; margin:0 0 16px; }
-        .tour-shell { height:min(72vh, 640px); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
-        .caption { font-size:12.5px; color:var(--ink-soft); text-align:center; margin-top:12px; }
-        .section-head { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:24px; }
-        .section-head h2 { font-family:Georgia,'Times New Roman',serif; font-style:italic; font-weight:400; font-size:26px; margin:0; }
-        .link { background:none; border:none; color:var(--accent); font-size:13px; cursor:pointer; text-decoration:none; }
-        .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:28px; }
+        .section-wide { max-width:1120px; margin:0 auto; padding:56px 24px; }
+        .lede { font-size:16px; line-height:1.7; color:var(--ink-soft); text-align:center; }
+        .bio p { font-size:15px; line-height:1.75; color:var(--ink-soft); text-align:left; margin:0 0 16px; }
+        .tour-shell { height:min(72vh, 640px); border:2px solid var(--ink); overflow:hidden; }
+        .caption { font-size:12.5px; color:var(--ink-soft); text-align:center; margin-top:14px; }
+        .section-head { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:28px; gap:16px; flex-wrap:wrap; }
+        .section-head h2 { font-family:inherit; font-weight:500; letter-spacing:-0.035em; font-size:clamp(24px,3.4vw,34px); margin:0; }
+        .link { background:none; border:none; color:var(--accent); font-size:13px; font-weight:500; cursor:pointer;
+          text-decoration:none; border-bottom:2px solid var(--rose); padding-bottom:1px; }
+        .link:hover { border-bottom-color:var(--accent); }
+
+        .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:32px; }
         .card { display:flex; flex-direction:column; }
-        .card-frame { background:#161514; padding:10px; border-radius:2px; margin-bottom:12px; }
-        .card-frame img { width:100%; display:block; }
-        .card-title { font-family:Georgia,'Times New Roman',serif; font-style:italic; font-size:16px; }
-        .card-artist { font-size:11px; letter-spacing:1px; color:var(--accent); text-transform:uppercase; margin-top:2px; }
-        .card-meta { font-size:12px; color:var(--ink-soft); margin:2px 0 8px; }
-        .card-note { font-size:12.5px; color:var(--ink-soft); line-height:1.55; margin:0 0 14px; }
-        .btn-solid, .btn-outline { font-size:13px; letter-spacing:0.5px; padding:11px 22px; border-radius:999px; cursor:pointer; }
-        .btn-solid { background:var(--accent); color:#fff; border:1px solid var(--accent); }
-        .btn-outline { background:transparent; color:var(--ink); border:1px solid var(--border); align-self:flex-start; }
-        .btn-outline:hover { border-color:var(--accent); color:var(--accent); }
-        .btn-sm { padding:8px 16px; font-size:12px; }
-        .tour-chip { background:rgba(255,255,255,0.85); border:1px solid var(--border); color:var(--ink); font-size:11px; letter-spacing:0.5px; padding:6px 12px; border-radius:999px; pointer-events:none; }
-        .tour-btn { background:rgba(255,255,255,0.85); border:1px solid var(--border); border-radius:999px; color:var(--ink); font-size:14px; cursor:pointer; }
-        .margarita-grid { display:grid; grid-template-columns:220px 1fr; gap:48px; }
-        .portrait-frame { background:#161514; padding:10px; border-radius:2px; }
+        .card-frame { position:relative; aspect-ratio:4/5; background:var(--rule); overflow:hidden; margin-bottom:14px; }
+        .card:hover .card-frame { outline:2px solid var(--accent); outline-offset:6px; }
+        .card-frame img { width:100%; height:100%; object-fit:cover; display:block; filter:saturate(0.92); }
+        .card-watermark { position:absolute; right:8px; bottom:8px; width:26px; height:auto; opacity:0.95; }
+        .card-title { font-family:inherit; font-weight:500; letter-spacing:-0.03em; font-size:17px; }
+        .card-artist { font-size:11px; font-weight:500; letter-spacing:0.12em; color:var(--accent); text-transform:uppercase; margin-top:3px; }
+        .card-meta-row { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:6px 0 10px; padding-top:8px; border-top:2px solid var(--rule); }
+        .card-meta { font-size:12px; color:var(--ink-soft); }
+        .card-note { font-size:13px; color:var(--ink-soft); line-height:1.6; margin:0 0 14px; }
+
+        .btn-solid, .btn-outline { font-family:inherit; font-size:12px; font-weight:500; letter-spacing:0.14em; text-transform:uppercase;
+          padding:13px 20px; border-radius:0; cursor:pointer; border:2px solid var(--accent); }
+        .btn-solid { background:var(--accent); color:#fff; }
+        .btn-solid:hover { background:var(--accent-deep); border-color:var(--accent-deep); }
+        .btn-outline { background:transparent; color:var(--accent); align-self:flex-start; }
+        .btn-outline:hover { background:var(--accent-tint); }
+        .btn-sm { padding:10px 14px; font-size:11px; }
+        .tour-chip { background:var(--surface); border:2px solid var(--accent); color:var(--ink); font-size:10.5px; font-weight:500;
+          letter-spacing:0.12em; text-transform:uppercase; padding:7px 12px; pointer-events:none; }
+        .tour-btn { background:var(--surface); border:2px solid var(--ink); color:var(--ink); font-size:14px; cursor:pointer; }
+
+        .poster { background:var(--accent); color:#fff; padding:64px 24px; text-align:center; }
+        .poster .eyebrow { color:var(--rose); }
+        .poster h2 { font-family:inherit; font-weight:500; letter-spacing:-0.035em; font-size:clamp(22px,3.2vw,32px); margin:0 0 18px; }
+        .poster .btn-solid { background:#fff; color:var(--accent); border-color:#fff; }
+        .poster .btn-solid:hover { background:var(--rose); border-color:var(--rose); }
+
+        .margarita-grid { display:grid; grid-template-columns:220px 1fr; gap:52px; }
+        .crop.portrait-frame { padding:14px; }
         .portrait-frame img { width:100%; display:block; }
-        .contact-form { display:flex; flex-direction:column; gap:14px; margin-top:22px; max-width:420px; }
-        .contact-form label { font-size:12px; color:var(--ink-soft); display:flex; flex-direction:column; gap:6px; }
-        .contact-form input, .contact-form textarea { font:inherit; font-size:14px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; color:var(--ink); background:#fff; resize:vertical; }
-        .contact-form input:focus, .contact-form textarea:focus { outline:none; border-color:var(--accent); }
+        .contact-form { display:flex; flex-direction:column; gap:14px; margin-top:24px; max-width:420px; }
+        .contact-form label { font-size:11px; font-weight:500; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-soft); display:flex; flex-direction:column; gap:7px; }
+        .contact-form input, .contact-form textarea { font:inherit; font-size:14px; padding:12px 13px; border:2px solid var(--ink); border-radius:0; color:var(--ink); background:#fff; resize:vertical; }
+        .contact-form input:focus, .contact-form textarea:focus { outline:2px solid var(--accent); outline-offset:2px; border-color:var(--accent); }
         .form-note { font-size:12.5px; }
         .form-note.error { color:#a33; }
         .form-note.ok { color:#2f6b3d; }
-        @media (max-width:720px){ .margarita-grid{ grid-template-columns:1fr; } .tabs{ gap:18px; } }
+
+        .site-footer { background:var(--ink); color:#fff; padding:56px 24px 32px; margin-top:40px; }
+        .site-footer-inner { max-width:1120px; margin:0 auto; display:flex; flex-direction:column; gap:28px; }
+        .site-footer .footer-logo { height:40px; width:auto; }
+        .site-footer-links { display:flex; gap:24px; flex-wrap:wrap; }
+        .site-footer-links a, .site-footer-links button { color:var(--rose); font-size:12px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase;
+          background:none; border:none; padding:0; cursor:pointer; text-decoration:none; border-bottom:2px solid transparent; }
+        .site-footer-links a:hover, .site-footer-links button:hover { border-bottom-color:var(--rose); }
+        .site-footer-bottom { border-top:1px solid rgba(255,255,255,0.15); padding-top:20px; font-size:11.5px; color:rgba(255,255,255,0.55); }
+
+        @media (max-width:720px){ .margarita-grid{ grid-template-columns:1fr; } }
       `}</style>
 
       <Nav tab={tab} setTab={setTab} />
-      {tab === 'studio' && <StudioTab onEnquire={handleEnquire} />}
+      {tab === 'studio' && <StudioTab onEnquire={handleEnquire} goMargarita={() => { setTab('margarita'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />}
       {tab === 'artists' && <ArtistsTab onEnquire={handleEnquire} />}
       {tab === 'margarita' && <MargaritaTab prefill={enquiry} />}
 
-      <footer style={{ textAlign: 'center', padding: '40px 24px', fontSize: 12, color: 'var(--ink-soft)', borderTop: '1px solid var(--border)', marginTop: 40 }}>
-        {BRAND} — placeholder site, built with Claude.
+      <footer className="site-footer">
+        <div className="site-footer-inner">
+          <img src="/assets/logo-lockup-reversed.svg" alt={BRAND} className="footer-logo" />
+          <nav className="site-footer-links">
+            <button onClick={() => setTab('studio')}>Studio</button>
+            <button onClick={() => setTab('artists')}>Artists</button>
+            <button onClick={() => setTab('margarita')}>Margarita</button>
+            <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+          </nav>
+          <div className="site-footer-bottom">{BRAND} — curated paintings, advisory &amp; sale.</div>
+        </div>
       </footer>
     </div>
   );
