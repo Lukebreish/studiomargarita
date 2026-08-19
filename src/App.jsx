@@ -114,9 +114,9 @@ function generateWallTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#fbfaf7';
+  ctx.fillStyle = '#f4f0e2';
   ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = 'rgba(0,0,0,0.02)';
+  ctx.strokeStyle = 'rgba(0,0,0,0.035)';
   ctx.lineWidth = 2;
   for (let x = 0; x < w; x += 64) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
   const tex = new THREE.CanvasTexture(canvas);
@@ -129,11 +129,16 @@ function generateFloorTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#e6dcc7';
+  ctx.fillStyle = '#8a6135';
   ctx.fillRect(0, 0, w, h);
   const rand = mulberry32(7);
+  for (let x = 0; x < w; x += 42) {
+    ctx.strokeStyle = 'rgba(30,18,8,0.18)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
   for (let y = 0; y < h; y += 18) {
-    ctx.strokeStyle = `rgba(120,95,55,${0.08 + rand() * 0.08})`;
+    ctx.strokeStyle = `rgba(50,30,12,${0.12 + rand() * 0.12})`;
     ctx.lineWidth = 1 + rand() * 2;
     ctx.beginPath();
     ctx.moveTo(0, y + rand() * 6);
@@ -183,36 +188,65 @@ function MuseumTour({ onEnquire }) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(mount.clientWidth, mount.clientHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 1.08;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     mount.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.85));
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xe8ddc9, 0.7));
+    scene.add(new THREE.AmbientLight(0xfff4e0, 0.42));
+    scene.add(new THREE.HemisphereLight(0xf3ecd8, 0xc9a878, 0.4));
 
+    const WAINSCOT_H = 1.05;
     const wallTex = generateWallTexture();
-    wallTex.repeat.set(HALL_LEN / 4, WALL_H / 4);
-    const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.95 });
-    const endWallMat = new THREE.MeshStandardMaterial({ color: 0xf6f4ee, roughness: 0.95 });
-    const ceilMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 });
+    wallTex.repeat.set(HALL_LEN / 4, (WALL_H - WAINSCOT_H) / 3);
+    const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.92 });
+    const wainscotMat = new THREE.MeshStandardMaterial({ color: 0xd7cdb2, roughness: 0.85 });
+    const ceilMat = new THREE.MeshStandardMaterial({ color: 0xf7f3e8, roughness: 1 });
     const floorTex = generateFloorTexture();
-    floorTex.repeat.set(ROOM_W / 3, HALL_LEN / 3);
-    const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.8 });
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0x161514, roughness: 0.5, metalness: 0.2 });
+    floorTex.repeat.set(ROOM_W / 2.2, HALL_LEN / 2.2);
+    const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.35, metalness: 0.08 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0x2a2016, roughness: 0.55, metalness: 0.15 });
+    const frameMat = trimMat;
+    const linerMat = new THREE.MeshStandardMaterial({ color: 0xb8925a, roughness: 0.3, metalness: 0.7 });
+    const thresholdMat = new THREE.MeshStandardMaterial({ color: 0xd9d2c0, roughness: 0.25, metalness: 0.05 });
+    const fixtureMat = new THREE.MeshStandardMaterial({ color: 0x1c1a17, roughness: 0.4, metalness: 0.5 });
+    const fixtureGlowMat = new THREE.MeshBasicMaterial({ color: 0xfff2d0 });
 
     const collidableBoxes = [];
     const artMeshes = [];
 
+    function buildWallX(cx, cz, tX, lenZ) {
+      const wain = new THREE.Mesh(new THREE.BoxGeometry(tX, WAINSCOT_H, lenZ), wainscotMat);
+      wain.position.set(cx, WAINSCOT_H / 2, cz); wain.receiveShadow = true; scene.add(wain);
+      const upperH = WALL_H - WAINSCOT_H;
+      const upper = new THREE.Mesh(new THREE.BoxGeometry(tX, upperH, lenZ), wallMat);
+      upper.position.set(cx, WAINSCOT_H + upperH / 2, cz); upper.receiveShadow = true; scene.add(upper);
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(tX + 0.02, 0.05, lenZ), trimMat);
+      rail.position.set(cx, WAINSCOT_H, cz); scene.add(rail);
+      const base = new THREE.Mesh(new THREE.BoxGeometry(tX + 0.02, 0.12, lenZ), trimMat);
+      base.position.set(cx, 0.06, cz); scene.add(base);
+    }
+    function buildWallZ(cx, cz, lenX, tZ) {
+      const wain = new THREE.Mesh(new THREE.BoxGeometry(lenX, WAINSCOT_H, tZ), wainscotMat);
+      wain.position.set(cx, WAINSCOT_H / 2, cz); wain.receiveShadow = true; scene.add(wain);
+      const upperH = WALL_H - WAINSCOT_H;
+      const upper = new THREE.Mesh(new THREE.BoxGeometry(lenX, upperH, tZ), wallMat);
+      upper.position.set(cx, WAINSCOT_H + upperH / 2, cz); upper.receiveShadow = true; scene.add(upper);
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(lenX, 0.05, tZ + 0.02), trimMat);
+      rail.position.set(cx, WAINSCOT_H, cz); scene.add(rail);
+      const base = new THREE.Mesh(new THREE.BoxGeometry(lenX, 0.12, tZ + 0.02), trimMat);
+      base.position.set(cx, 0.06, cz); scene.add(base);
+    }
+
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, HALL_LEN), floorMat);
-    floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0, -HALL_LEN / 2); scene.add(floor);
+    floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0, -HALL_LEN / 2); floor.receiveShadow = true; scene.add(floor);
 
     const ceil = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, HALL_LEN), ceilMat);
     ceil.rotation.x = Math.PI / 2; ceil.position.set(0, WALL_H, -HALL_LEN / 2); scene.add(ceil);
 
     const thickness = 0.25;
     [-1, 1].forEach((side) => {
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(thickness, WALL_H, HALL_LEN), wallMat);
-      wall.position.set(side * (ROOM_W / 2), WALL_H / 2, -HALL_LEN / 2);
-      scene.add(wall);
+      buildWallX(side * (ROOM_W / 2), -HALL_LEN / 2, thickness, HALL_LEN);
       collidableBoxes.push({ minX: side * (ROOM_W / 2) - thickness, maxX: side * (ROOM_W / 2) + thickness, minZ: -HALL_LEN - 1, maxZ: 1 });
     });
 
@@ -222,15 +256,22 @@ function MuseumTour({ onEnquire }) {
       [-1, 1].forEach((side) => {
         const segW = ROOM_W / 2 - doorW / 2;
         const segX = side * (doorW / 2 + segW / 2);
-        const seg = new THREE.Mesh(new THREE.BoxGeometry(segW, WALL_H, thickness), wallMat);
-        seg.position.set(segX, WALL_H / 2, z);
-        scene.add(seg);
+        buildWallZ(segX, z, segW, thickness);
         collidableBoxes.push({ minX: segX - segW / 2, maxX: segX + segW / 2, minZ: z - thickness, maxZ: z + thickness });
       });
+      const threshold = new THREE.Mesh(new THREE.PlaneGeometry(doorW - 0.1, 1.0), thresholdMat);
+      threshold.rotation.x = -Math.PI / 2; threshold.position.set(0, 0.006, z); threshold.receiveShadow = true; scene.add(threshold);
+      [-1, 1].forEach((side) => {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, WALL_H * 0.82, thickness + 0.06), trimMat);
+        post.position.set(side * (doorW / 2), (WALL_H * 0.82) / 2, z); scene.add(post);
+      });
+      const header = new THREE.Mesh(new THREE.BoxGeometry(doorW + 0.2, 0.14, thickness + 0.06), trimMat);
+      header.position.set(0, WALL_H * 0.82 + 0.07, z); scene.add(header);
+      const glow = new THREE.PointLight(0xfff0d8, 0.55, 8, 2);
+      glow.position.set(0, 2.2, z - 2); scene.add(glow);
     }
 
-    const backWall = new THREE.Mesh(new THREE.BoxGeometry(ROOM_W, WALL_H, thickness), endWallMat);
-    backWall.position.set(0, WALL_H / 2, -HALL_LEN); scene.add(backWall);
+    buildWallZ(0, -HALL_LEN, ROOM_W, thickness);
     collidableBoxes.push({ minX: -ROOM_W / 2 - 1, maxX: ROOM_W / 2 + 1, minZ: -HALL_LEN - thickness, maxZ: -HALL_LEN + thickness });
 
     ARTWORKS.forEach((info) => {
@@ -246,10 +287,16 @@ function MuseumTour({ onEnquire }) {
       const hgt = info.wall === 'back' ? ART_H * 1.6 : ART_H;
 
       const frame = new THREE.Mesh(new THREE.BoxGeometry(
-        info.wall === 'back' ? w + 0.14 : 0.05,
-        hgt + 0.14,
-        info.wall === 'back' ? 0.05 : w + 0.14
+        info.wall === 'back' ? w + 0.16 : 0.06,
+        hgt + 0.16,
+        info.wall === 'back' ? 0.06 : w + 0.16
       ), frameMat);
+      frame.castShadow = true;
+      const liner = new THREE.Mesh(new THREE.BoxGeometry(
+        info.wall === 'back' ? w + 0.04 : 0.02,
+        hgt + 0.04,
+        info.wall === 'back' ? 0.02 : w + 0.04
+      ), linerMat);
       const artTex = new THREE.CanvasTexture(generateArtCanvas(info.palette, info.id));
       const artMat = new THREE.MeshStandardMaterial({ map: artTex, roughness: 0.8 });
       const art = new THREE.Mesh(new THREE.PlaneGeometry(w, hgt), artMat);
@@ -262,16 +309,29 @@ function MuseumTour({ onEnquire }) {
       const artY = 2.15;
       const placardY = artY - hgt / 2 - 0.28;
       frame.position.set(x + dirX * 0.03, artY, z + dirZ * 0.03);
-      art.position.set(x + dirX * 0.06, artY, z + dirZ * 0.06);
-      placard.position.set(x + dirX * 0.06, placardY, z + dirZ * 0.06);
-      scene.add(frame, art, placard);
+      liner.position.set(x + dirX * 0.05, artY, z + dirZ * 0.05);
+      art.position.set(x + dirX * 0.07, artY, z + dirZ * 0.07);
+      placard.position.set(x + dirX * 0.07, placardY, z + dirZ * 0.07);
+      scene.add(frame, liner, art, placard);
 
-      const spot = new THREE.SpotLight(0xfff2df, 1.1, 11, 0.55, 0.6);
+      const spot = new THREE.SpotLight(0xfff2df, 2.1, 11, 0.5, 0.6);
       spot.position.set(x + spotOffsetX, WALL_H - 0.6, z + spotOffsetZ + (info.wall === 'back' ? 0 : 0.6));
+      spot.castShadow = true;
+      spot.shadow.mapSize.set(512, 512);
+      spot.shadow.bias = -0.0018;
       const target = new THREE.Object3D();
       target.position.set(x + dirX * 0.5, artY - 0.2, z + dirZ * 0.5);
       scene.add(target); spot.target = target; scene.add(spot);
+
+      const fixture = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.16), fixtureMat);
+      fixture.position.set(spot.position.x, WALL_H - 0.05, spot.position.z);
+      scene.add(fixture);
+      const fixtureGlow = new THREE.Mesh(new THREE.PlaneGeometry(0.38, 0.1), fixtureGlowMat);
+      fixtureGlow.rotation.x = Math.PI / 2;
+      fixtureGlow.position.set(spot.position.x, WALL_H - 0.1, spot.position.z);
+      scene.add(fixtureGlow);
     });
+
 
     const st = stateRef.current;
     const onKeyDown = (e) => {
@@ -455,7 +515,10 @@ function MuseumTour({ onEnquire }) {
             <div style={{ fontSize: 12, letterSpacing: '1.5px', color: '#7a2530', textTransform: 'uppercase', marginBottom: 3 }}>{active.artist}</div>
             <div style={{ fontSize: 12, color: '#8a887f', marginBottom: 12 }}>{active.meta}</div>
             <div style={{ fontSize: 13, color: '#4a4a45', lineHeight: 1.6, maxWidth: 400, margin: '0 auto 16px' }}>{active.note}</div>
-            <button className="btn-solid" onClick={() => { onEnquire && onEnquire(active); closePanel(); }}>Enquire to purchase</button>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button className="btn-solid" onClick={() => { onEnquire && onEnquire(active); closePanel(); }}>Enquire to purchase</button>
+              <button className="btn-outline" onClick={() => { document.dispatchEvent(new CustomEvent('go-artists')); closePanel(); }}>View full collection</button>
+            </div>
           </div>
         </div>
       )}
@@ -476,6 +539,7 @@ function PaintingCard({ artwork, onEnquire }) {
       <div className="card-title">{artwork.title}</div>
       <div className="card-artist">{artwork.artist}</div>
       <div className="card-meta">{artwork.meta}</div>
+      <p className="card-note">{artwork.note}</p>
       <button className="btn-outline btn-sm" onClick={() => onEnquire(artwork)}>Enquire to purchase</button>
     </div>
   );
@@ -596,12 +660,12 @@ function MargaritaTab({ prefill }) {
         <div>
           <div className="eyebrow">About</div>
           <h2 style={{ marginTop: 6 }}>Margarita</h2>
-          <p className="lede">
-            Margarita is a painter working mostly in acrylic and oil, building toward a full body of
-            work as she establishes herself as an arts specialist. This is placeholder copy — swap it
-            for her real story: where she trained, what draws her to a piece, and what she wants people
-            to feel standing in front of it.
-          </p>
+          <div className="bio">
+            <p>Margarita was born in Saint Petersburg — a city built on art, on grand facades and grander ambitions — and that sense of scale never left her. What began as a fascination with beautiful things became a life spent chasing them across the globe. Over forty countries, countless studios, auction houses, and quiet conversations with collectors who don't advertise what they own.</p>
+            <p>She has a rare gift: the room notices her before she says a word, and by the time she does, you're already listening. It's not performance — it's presence. People trust her instantly, artists open their private collections to her, and clients return to her again and again, not just for the art, but for her.</p>
+            <p>Margarita doesn't sell paintings. She reads people, then finds the piece that was always meant for them — a canvas that belongs on that wall, in that light, in that life. Her network spans continents, built one relationship at a time, in a language she speaks fluently no matter the country: taste.</p>
+            <p>She's available around the clock, wherever you are, ready to fly in, sit down, and talk about what moves you. And for those not ready to meet in person, she built something rare of her own — a virtual gallery where you can step inside her world and see, before you ever shake her hand, exactly why people trust her eye.</p>
+          </div>
 
           <form className="contact-form" onSubmit={submit}>
             <label>Name<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
@@ -658,6 +722,7 @@ export default function App() {
         .section-narrow { max-width:640px; margin:0 auto; padding:20px 24px; }
         .section-wide { max-width:1080px; margin:0 auto; padding:40px 24px; }
         .lede { font-size:15px; line-height:1.75; color:var(--ink-soft); text-align:center; }
+        .bio p { font-size:14.5px; line-height:1.75; color:var(--ink-soft); text-align:left; margin:0 0 16px; }
         .tour-shell { height:min(72vh, 640px); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
         .caption { font-size:12.5px; color:var(--ink-soft); text-align:center; margin-top:12px; }
         .section-head { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:24px; }
@@ -669,7 +734,8 @@ export default function App() {
         .card-frame img { width:100%; display:block; }
         .card-title { font-family:Georgia,'Times New Roman',serif; font-style:italic; font-size:16px; }
         .card-artist { font-size:11px; letter-spacing:1px; color:var(--accent); text-transform:uppercase; margin-top:2px; }
-        .card-meta { font-size:12px; color:var(--ink-soft); margin:2px 0 12px; }
+        .card-meta { font-size:12px; color:var(--ink-soft); margin:2px 0 8px; }
+        .card-note { font-size:12.5px; color:var(--ink-soft); line-height:1.55; margin:0 0 14px; }
         .btn-solid, .btn-outline { font-size:13px; letter-spacing:0.5px; padding:11px 22px; border-radius:999px; cursor:pointer; }
         .btn-solid { background:var(--accent); color:#fff; border:1px solid var(--accent); }
         .btn-outline { background:transparent; color:var(--ink); border:1px solid var(--border); align-self:flex-start; }
