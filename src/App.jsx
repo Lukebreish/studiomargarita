@@ -562,7 +562,6 @@ function ArtistsTab({ onEnquire }) {
    MARGARITA TAB (contact)
    ============================================================ */
 function MargaritaTab({ prefill }) {
-  const portraitUrl = useMemo(() => generateArtCanvas(4, 42, 360, 460).toDataURL(), []);
   const [form, setForm] = useState({ name: '', email: '', message: prefill ? `I'm interested in "${prefill.title}" — could you tell me more?` : '' });
   const [status, setStatus] = useState('idle');
 
@@ -592,16 +591,16 @@ function MargaritaTab({ prefill }) {
     <section className="section-narrow" style={{ paddingTop: 56 }}>
       <div className="margarita-grid">
         <div>
-          <div className="portrait-frame"><img src={portraitUrl} alt="Margarita" /></div>
-          <p className="caption" style={{ marginTop: 8 }}>Placeholder — swap in a real photo whenever you're ready.</p>
+          <div className="portrait-frame"><img src="/margarita/portrait.jpg" alt="Margarita" /></div>
         </div>
         <div>
           <div className="eyebrow">About</div>
           <h2 style={{ marginTop: 6 }}>Margarita</h2>
           <p className="lede">
-            Margarita is a painter working mostly in acrylic and oil, building toward a full body of work
-            as she establishes herself as an arts specialist. This is placeholder copy — replace it with her
-            real story, background, and the ideas behind the work.
+            Margarita is a painter working mostly in acrylic and oil, building toward a full body of
+            work as she establishes herself as an arts specialist. This is placeholder copy — swap it
+            for her real story: where she trained, what draws her to a piece, and what she wants people
+            to feel standing in front of it.
           </p>
 
           <form className="contact-form" onSubmit={submit}>
