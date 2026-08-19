@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" fill="#6b1f30"></rect>
+  <path d="M6 12 L6 6 L12 6" fill="none" stroke="#ffffff" stroke-width="2.5"></path>
+  <path d="M20 6 L26 6 L26 12" fill="none" stroke="#ffffff" stroke-width="2.5"></path>
+  <path d="M26 20 L26 26 L20 26" fill="none" stroke="#ffffff" stroke-width="2.5"></path>
+  <path d="M12 26 L6 26 L6 20" fill="none" stroke="#ffffff" stroke-width="2.5"></path>
+  <text x="16" y="17" font-family="'Space Grotesk',Archivo,sans-serif" font-size="13" font-weight="500" fill="#ffffff" text-anchor="middle" dominant-baseline="central">M</text>
+</svg>

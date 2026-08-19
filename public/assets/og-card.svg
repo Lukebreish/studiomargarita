@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <rect width="1200" height="630" fill="#f6f4f4"></rect>
+  <path d="M80 170 L80 80 L170 80" fill="none" stroke="#6b1f30" stroke-width="6"></path>
+  <path d="M1030 80 L1120 80 L1120 170" fill="none" stroke="#6b1f30" stroke-width="6"></path>
+  <path d="M1120 460 L1120 550 L1030 550" fill="none" stroke="#6b1f30" stroke-width="6"></path>
+  <path d="M170 550 L80 550 L80 460" fill="none" stroke="#6b1f30" stroke-width="6"></path>
+  <text x="140" y="250" font-family="'Space Grotesk',Archivo,sans-serif" font-size="26" font-weight="500" letter-spacing="14" fill="#6b1f30">STUDIO</text>
+  <text x="132" y="392" font-family="'Space Grotesk',Archivo,sans-serif" font-size="132" font-weight="500" letter-spacing="-6" fill="#1a1416">Margarita</text>
+  <text x="140" y="462" font-family="'Space Grotesk',Archivo,sans-serif" font-size="19" font-weight="500" letter-spacing="5" fill="#6f6266">CURATED PAINTINGS — ADVISORY &amp; SALE</text>
+</svg>

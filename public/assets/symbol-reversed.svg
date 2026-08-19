@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Studio Margarita">
+  <rect width="64" height="64" fill="#1a1416"></rect>
+  <path d="M9 22 L9 9 L22 9" fill="none" stroke="#e0c3ca" stroke-width="3"></path>
+  <path d="M42 9 L55 9 L55 22" fill="none" stroke="#e0c3ca" stroke-width="3"></path>
+  <path d="M55 42 L55 55 L42 55" fill="none" stroke="#e0c3ca" stroke-width="3"></path>
+  <path d="M22 55 L9 55 L9 42" fill="none" stroke="#e0c3ca" stroke-width="3"></path>
+  <text x="32" y="33" font-family="'Space Grotesk',Archivo,sans-serif" font-size="26" font-weight="500" letter-spacing="-1.3" fill="#ffffff" text-anchor="middle" dominant-baseline="central">M</text>
+</svg>
