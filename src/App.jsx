@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
+import ReasonsSwiper from './ReasonsSwiper.jsx';
 
 /* ============================================================
    SHARED DATA
@@ -707,17 +708,11 @@ function Nav({ tab, setTab }) {
    STUDIO TAB (home)
    ============================================================ */
 function StudioTab({ onEnquire, goMargarita }) {
-  const tourRef = useRef(null);
   const featured = ARTWORKS.filter((a) => a.featured);
   return (
     <>
-      <section className="hero">
-        <div className="crop hero-crop"><div className="crop-b" />
-          <div className="eyebrow">The virtual museum</div>
-          <h1>A gallery you can walk through</h1>
-        </div>
-        <p className="hero-sub">Step inside a full 3D museum of the collection before you buy a single piece.</p>
-        <button className="btn-solid" onClick={() => tourRef.current?.scrollIntoView({ behavior: 'smooth' })}>Enter the virtual museum</button>
+      <section className="reasons-hero-wrap">
+        <ReasonsSwiper artworks={featured} onEnquire={onEnquire} />
       </section>
 
       <section className="section-narrow">
@@ -726,13 +721,6 @@ function StudioTab({ onEnquire, goMargarita }) {
           in person, room by room, rather than scroll past thumbnails. Every piece here is available
           to enquire about and buy directly.
         </p>
-      </section>
-
-      <section className="section-wide section-rule" ref={tourRef}>
-        <div className="crop"><div className="crop-b" />
-          <div className="tour-shell"><MuseumTour onEnquire={onEnquire} /></div>
-        </div>
-        <p className="caption">Walk through with WASD or arrows, drag to look around, click any piece to view and enquire.</p>
       </section>
 
       <section className="section-wide section-rule">
@@ -954,6 +942,31 @@ export default function App() {
         .site-footer-bottom { border-top:1px solid rgba(255,255,255,0.15); padding-top:20px; font-size:11.5px; color:rgba(255,255,255,0.55); }
 
         @media (max-width:720px){ .margarita-grid{ grid-template-columns:1fr; } }
+
+        /* Reasons swiper hero ------------------------------------------- */
+        .reasons-hero-wrap { border-bottom:2px solid var(--ink); }
+        .reasons-swiper { width:100%; }
+        .reasons-swiper .swiper { width:100%; height:min(86vh, 780px); min-height:460px; }
+        .reasons-swiper .swiper-slide { position:relative; overflow:hidden; background:var(--ink); }
+        .reason-bg { position:absolute; inset:-8%; background-size:cover; background-position:center; }
+        .reason-painting-frame { position:absolute; overflow:hidden; box-shadow:0 18px 40px rgba(0,0,0,0.35); }
+        .reason-painting-frame img { width:100%; height:100%; object-fit:cover; display:block; }
+        .reason-painting-frame.on-glass img { filter:saturate(0.96) brightness(1.02); }
+        .glass-sheen { position:absolute; inset:0; pointer-events:none;
+          background:linear-gradient(115deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.08) 18%, rgba(255,255,255,0) 34%, rgba(255,255,255,0) 70%, rgba(255,255,255,0.18) 100%); }
+        .reason-caption { position:absolute; left:6%; bottom:9%; max-width:340px; background:rgba(255,255,255,0.94); border:2px solid var(--ink); padding:20px 22px; }
+        .reason-caption .eyebrow { margin-bottom:8px; }
+        .reason-caption p { font-size:14px; color:var(--ink-soft); line-height:1.55; margin:0 0 14px; max-width:none; }
+        .reasons-swiper .swiper-button-next, .reasons-swiper .swiper-button-prev {
+          color:var(--ink); background:rgba(255,255,255,0.85); width:44px; height:44px; border:2px solid var(--ink); }
+        .reasons-swiper .swiper-button-next::after, .reasons-swiper .swiper-button-prev::after { font-size:16px; font-weight:700; }
+        .reasons-swiper .swiper-button-next:hover, .reasons-swiper .swiper-button-prev:hover { background:var(--accent); color:#fff; border-color:var(--accent); }
+        .reasons-swiper .swiper-pagination-bullet { width:9px; height:9px; border-radius:50%; background:#fff; opacity:0.6; border:2px solid var(--ink); }
+        .reasons-swiper .swiper-pagination-bullet-active { background:var(--accent); border-color:var(--accent); opacity:1; }
+        @media (max-width:720px){
+          .reasons-swiper .swiper-button-next, .reasons-swiper .swiper-button-prev { display:none; }
+          .reason-caption { left:5%; right:5%; max-width:none; bottom:7%; padding:16px 18px; }
+        }
       `}</style>
 
       <Nav tab={tab} setTab={setTab} />
