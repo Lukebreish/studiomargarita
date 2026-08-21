@@ -18,11 +18,11 @@ const PALETTES = [
 ];
 
 const ARTWORKS = [
-  { id: 0, room: 0, wall: 'left', image: '/paintings/behind-my-hand.jpg', aspect: 1058 / 732, title: 'Behind My Hand', artist: 'Margarita', meta: 'Oil on canvas', note: 'A study in obscured self-portraiture — colour standing in for what the hand hides.', featured: true },
-  { id: 1, room: 0, wall: 'right', image: '/paintings/river-fable.jpg', aspect: 1076 / 744, title: 'River Fable', artist: 'Margarita', meta: 'Acrylic on canvas', note: 'A dense, folkloric scene — figure, fish, and foliage read as one continuous body.', featured: true },
-  { id: 2, room: 1, wall: 'left', image: '/paintings/nocturne.jpg', aspect: 954 / 663, title: 'Nocturne', artist: 'Margarita', meta: 'Digital painting', note: 'A single wing rendered in close, patient detail against the dark.', featured: true },
-  { id: 3, room: 1, wall: 'right', image: '/paintings/the-procession.jpg', aspect: 1101 / 619, title: 'The Procession', artist: 'Margarita', meta: 'Oil on canvas', note: 'A crowd dissolves into colour and rhythm — movement painted as pattern.', featured: true },
-  { id: 4, room: 2, wall: 'back', image: '/paintings/martyrs-square.jpg', aspect: 1020 / 510, title: "Martyrs' Square", artist: 'Margarita', meta: 'Oil on canvas', note: 'Beirut, mid-uprising — the city\'s landmarks held inside a sky full of colour and flight.', featured: false },
+  { id: 0, room: 0, wall: 'left', image: '/paintings/behind-my-hand.jpg', aspect: 1058 / 732, title: 'Behind My Hand', artist: 'Ellisar', meta: 'Oil on canvas', note: 'A study in obscured self-portraiture — colour standing in for what the hand hides.', featured: true },
+  { id: 1, room: 0, wall: 'right', image: '/paintings/river-fable.jpg', aspect: 1076 / 744, title: 'River Fable', artist: 'Ellisar', meta: 'Acrylic on canvas', note: 'A dense, folkloric scene — figure, fish, and foliage read as one continuous body.', featured: true },
+  { id: 2, room: 1, wall: 'left', image: '/paintings/nocturne.jpg', aspect: 954 / 663, title: 'Nocturne', artist: 'Ellisar', meta: 'Digital painting', note: 'A single wing rendered in close, patient detail against the dark.', featured: true },
+  { id: 3, room: 1, wall: 'right', image: '/paintings/the-procession.jpg', aspect: 1101 / 619, title: 'The Procession', artist: 'Ellisar', meta: 'Oil on canvas', note: 'A crowd dissolves into colour and rhythm — movement painted as pattern.', featured: true },
+  { id: 4, room: 2, wall: 'back', image: '/paintings/martyrs-square.jpg', aspect: 1020 / 510, title: "Martyrs' Square", artist: 'Ellisar', meta: 'Oil on canvas', note: 'Beirut, mid-uprising — the city\'s landmarks held inside a sky full of colour and flight.', featured: false },
 ];
 
 // note: a short curator's-note quote in Margarita's own voice, not a CV.
@@ -969,6 +969,19 @@ function ArtistsDirectory({ onEnquire, initialSelected }) {
 
 function StudioTab({ onEnquire, goMargarita, onSelectArtist, onSeeAllArtists }) {
   const featured = ARTWORKS.filter((a) => a.featured);
+  // "A closer look" highlights 4 pieces across different artists (2 x 2, for
+  // now Ellisar + Rayan) rather than reusing the tour's featured ARTWORKS —
+  // swap the titles below to feature different pieces.
+  const closerLook = useMemo(() => {
+    const pick = (artistId, artistName, titles) =>
+      worksByArtist(artistId)
+        .filter((w) => titles.includes(w.title))
+        .map((w) => ({ image: w.image, title: w.title, artist: artistName, meta: w.medium, note: w.size }));
+    return [
+      ...pick('ellisar', 'Ellisar', ['Genetically Modified II', 'Digital Painting II']),
+      ...pick('rayan', 'Rayan', ['Reflection', 'Within']),
+    ];
+  }, []);
   const closerLookRef = useRef(null);
   return (
     <>
@@ -992,7 +1005,7 @@ function StudioTab({ onEnquire, goMargarita, onSelectArtist, onSeeAllArtists }) 
           <button className="link" onClick={() => document.dispatchEvent(new CustomEvent('go-artists'))}>View the full collection →</button>
         </div>
         <div className="grid">
-          {featured.map((a) => <PaintingCard key={a.id} artwork={a} onEnquire={onEnquire} />)}
+          {closerLook.map((a) => <PaintingCard key={a.title} artwork={a} onEnquire={onEnquire} />)}
         </div>
       </section>
 
@@ -1011,17 +1024,18 @@ function StudioTab({ onEnquire, goMargarita, onSelectArtist, onSeeAllArtists }) 
    ARTISTS TAB
    ============================================================ */
 /* ============================================================
-   ART — headless-commerce catalog. Combines Margarita's own
-   ARTWORKS with every artist's auto-discovered artist-works pieces
-   into one filterable collection (artist, medium, price sort).
+   ART — headless-commerce catalog. Combines the hardcoded ARTWORKS
+   (used by the 3D tour and the homepage highlights) with every
+   artist's auto-discovered artist-works pieces into one filterable
+   collection (artist, medium, price sort).
    ============================================================ */
 function useCatalog() {
   return useMemo(() => {
-    const margaritaItems = ARTWORKS.map((a) => ({
-      key: `margarita-${a.id}`,
+    const tourItems = ARTWORKS.map((a) => ({
+      key: `tour-${a.id}`,
       image: a.image,
       title: a.title,
-      artist: 'Margarita',
+      artist: a.artist,
       medium: a.meta,
       price: undefined,
       size: undefined,
@@ -1039,7 +1053,7 @@ function useCatalog() {
         sold: !!w.sold,
       }))
     );
-    return [...margaritaItems, ...artistItems];
+    return [...tourItems, ...artistItems];
   }, []);
 }
 
@@ -1049,7 +1063,7 @@ function ArtTab({ onEnquire }) {
   const [mediumFilter, setMediumFilter] = useState('all');
   const [sort, setSort] = useState('featured');
 
-  const artistOptions = useMemo(() => ['Margarita', ...ARTISTS.map((a) => a.name)], []);
+  const artistOptions = useMemo(() => ARTISTS.map((a) => a.name), []);
   const mediumOptions = useMemo(
     () => Array.from(new Set(catalog.map((i) => i.medium).filter(Boolean))).sort(),
     [catalog]
