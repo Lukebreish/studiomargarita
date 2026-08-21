@@ -728,7 +728,7 @@ function TryInRoom({ artwork, onClose }) {
    NAV
    ============================================================ */
 function Nav({ tabKey, setTab }) {
-  const tabs = [['studio', 'Studio'], ['artists', 'Artists'], ['margarita', 'Margarita']];
+  const tabs = [['studio', 'Studio'], ['artists', 'Artists'], ['art', 'Art'], ['margarita', 'Margarita']];
   return (
     <header className="nav">
       <div className="nav-inner">
@@ -1010,16 +1010,125 @@ function StudioTab({ onEnquire, goMargarita, onSelectArtist, onSeeAllArtists }) 
 /* ============================================================
    ARTISTS TAB
    ============================================================ */
-function ArtistsTab({ onEnquire }) {
+/* ============================================================
+   ART — headless-commerce catalog. Combines Margarita's own
+   ARTWORKS with every artist's auto-discovered artist-works pieces
+   into one filterable collection (artist, medium, price sort).
+   ============================================================ */
+function useCatalog() {
+  return useMemo(() => {
+    const margaritaItems = ARTWORKS.map((a) => ({
+      key: `margarita-${a.id}`,
+      image: a.image,
+      title: a.title,
+      artist: 'Margarita',
+      medium: a.meta,
+      price: undefined,
+      size: undefined,
+      sold: false,
+    }));
+    const artistItems = ARTISTS.flatMap((artist) =>
+      worksByArtist(artist.id).map((w, i) => ({
+        key: `${artist.id}-${i}-${w.title}`,
+        image: w.image,
+        title: w.title,
+        artist: artist.name,
+        medium: w.medium,
+        price: w.price,
+        size: w.size,
+        sold: !!w.sold,
+      }))
+    );
+    return [...margaritaItems, ...artistItems];
+  }, []);
+}
+
+function ArtTab({ onEnquire }) {
+  const catalog = useCatalog();
+  const [artistFilter, setArtistFilter] = useState('all');
+  const [mediumFilter, setMediumFilter] = useState('all');
+  const [sort, setSort] = useState('featured');
+
+  const artistOptions = useMemo(() => ['Margarita', ...ARTISTS.map((a) => a.name)], []);
+  const mediumOptions = useMemo(
+    () => Array.from(new Set(catalog.map((i) => i.medium).filter(Boolean))).sort(),
+    [catalog]
+  );
+
+  const filtered = useMemo(() => {
+    let items = catalog.filter(
+      (i) => (artistFilter === 'all' || i.artist === artistFilter) && (mediumFilter === 'all' || i.medium === mediumFilter)
+    );
+    if (sort === 'price-asc') items = [...items].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+    if (sort === 'price-desc') items = [...items].sort((a, b) => (b.price ?? -Infinity) - (a.price ?? -Infinity));
+    return items;
+  }, [catalog, artistFilter, mediumFilter, sort]);
+
+  const clearFilters = () => { setArtistFilter('all'); setMediumFilter('all'); };
+
   return (
     <section className="section-wide" style={{ paddingTop: 56 }}>
       <div className="section-head">
-        <h2>The collection</h2>
+        <h2>The Collection</h2>
       </div>
-      <p className="lede" style={{ marginBottom: 32 }}>Every piece currently available, by Margarita.</p>
-      <div className="grid">
-        {ARTWORKS.map((a) => <PaintingCard key={a.id} artwork={a} onEnquire={onEnquire} />)}
+      <p className="lede" style={{ marginBottom: 32 }}>Every available piece across the Studio Margarita community — filter by artist or medium.</p>
+
+      <div className="shop-filters">
+        <label>
+          Artist
+          <select value={artistFilter} onChange={(e) => setArtistFilter(e.target.value)}>
+            <option value="all">All artists</option>
+            {artistOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+        </label>
+        <label>
+          Medium
+          <select value={mediumFilter} onChange={(e) => setMediumFilter(e.target.value)}>
+            <option value="all">All mediums</option>
+            {mediumOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </label>
+        <label>
+          Sort
+          <select value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="featured">Featured</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+          </select>
+        </label>
+        {(artistFilter !== 'all' || mediumFilter !== 'all') && (
+          <button className="link" onClick={clearFilters} style={{ alignSelf: 'center' }}>Clear filters</button>
+        )}
       </div>
+
+      <p style={{ fontSize: 12, color: 'var(--ink-soft)', margin: '20px 0' }}>{filtered.length} piece{filtered.length === 1 ? '' : 's'}</p>
+
+      {filtered.length > 0 ? (
+        <div className="grid">
+          {filtered.map((item) => (
+            <div className="card" key={item.key}>
+              <div className="card-frame">
+                <img src={item.image} alt={item.title} loading="lazy" />
+                {item.sold && <div className="sold-badge">Sold</div>}
+              </div>
+              <div className="card-title">{item.title}</div>
+              <div className="card-artist">{item.artist}</div>
+              <div className="card-meta-row">
+                <span className="card-meta">{[item.medium, item.size].filter(Boolean).join(' · ') || '—'}</span>
+                <span className="card-meta">{item.price ? `$${item.price.toLocaleString()}` : 'On enquiry'}</span>
+              </div>
+              <button className="btn-outline btn-sm" disabled={item.sold} onClick={() => onEnquire({ title: item.title })}>
+                {item.sold ? 'Sold' : 'Enquire to purchase'}
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="artist-empty-state">
+          <p>No pieces match those filters right now — try clearing them or check back soon.</p>
+          <button className="btn-solid" onClick={clearFilters}>Clear filters</button>
+        </div>
+      )}
     </section>
   );
 }
@@ -1102,8 +1211,8 @@ export default function App() {
     return () => document.removeEventListener('go-artists', goArtists);
   }, []);
 
-  const goToArtist = (id) => { setPendingArtist(id); setTab('our-artists'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const goToArtistsDirectory = () => { setPendingArtist(null); setTab('our-artists'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const goToArtist = (id) => { setPendingArtist(id); setTab('artists'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const goToArtistsDirectory = () => { setPendingArtist(null); setTab('artists'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
   const handleEnquire = (artwork) => {
     setEnquiry(artwork);
@@ -1296,13 +1405,22 @@ export default function App() {
         .artist-empty-state { border:2px dashed var(--rule); padding:44px 32px; text-align:center; }
         .artist-empty-state p { font-size:14px; color:var(--ink-soft); line-height:1.65; max-width:460px; margin:0 auto 20px; }
         @media (max-width:720px){ .artist-profile-head { grid-template-columns:1fr; } .artist-profile-portrait { border-right:none; border-bottom:2px solid var(--ink); } }
+
+        /* Art catalog filters ------------------------------------------ */
+        .shop-filters { display:flex; gap:20px; flex-wrap:wrap; align-items:flex-end; }
+        .shop-filters label { font-size:11px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-soft); display:flex; flex-direction:column; gap:7px; }
+        .shop-filters select { font:inherit; font-size:13px; padding:10px 12px; border:2px solid var(--ink); border-radius:0; color:var(--ink); background:#fff; min-width:170px; cursor:pointer; }
+        .shop-filters select:focus { outline:2px solid var(--accent); outline-offset:2px; border-color:var(--accent); }
+        .sold-badge { position:absolute; top:10px; left:10px; z-index:1; background:var(--ink); color:#fff; font-size:10px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; padding:5px 9px; }
+        .btn-outline:disabled, .btn-solid:disabled { opacity:0.4; cursor:not-allowed; }
+        .btn-outline:disabled:hover { background:transparent; }
       `}</style>
 
       <Nav tabKey={tab} setTab={setTab} />
       {tab === 'studio' && <StudioTab onEnquire={handleEnquire} goMargarita={() => { setTab('margarita'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} onSelectArtist={goToArtist} onSeeAllArtists={goToArtistsDirectory} />}
-      {tab === 'artists' && <ArtistsTab onEnquire={handleEnquire} />}
+      {tab === 'artists' && <ArtistsDirectory onEnquire={handleEnquire} initialSelected={pendingArtist} />}
+      {tab === 'art' && <ArtTab onEnquire={handleEnquire} />}
       {tab === 'margarita' && <MargaritaTab prefill={enquiry} />}
-      {tab === 'our-artists' && <ArtistsDirectory onEnquire={handleEnquire} initialSelected={pendingArtist} />}
 
       <footer className="site-footer">
         <div className="site-footer-inner">
@@ -1310,6 +1428,7 @@ export default function App() {
           <nav className="site-footer-links">
             <button onClick={() => setTab('studio')}>Studio</button>
             <button onClick={() => setTab('artists')}>Artists</button>
+            <button onClick={() => setTab('art')}>Art</button>
             <button onClick={() => setTab('margarita')}>Margarita</button>
             <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
           </nav>
