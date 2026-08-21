@@ -27,6 +27,7 @@ const ARTWORKS = [
 
 const CONTACT_EMAIL = 'hello@studiomargarita.com'; // placeholder — swap for the real inbox
 const FORM_ENDPOINT = 'https://formspree.io/f/YOUR_FORM_ID'; // placeholder — create a free Formspree form and drop the ID in here
+const NEWSLETTER_ENDPOINT = 'https://formspree.io/f/YOUR_NEWSLETTER_FORM_ID'; // placeholder — a second Formspree form (or swap for Mailchimp/ConvertKit later)
 
 /* ============================================================
    PROCEDURAL PLACEHOLDER ART
@@ -671,7 +672,7 @@ function TryInRoom({ artwork, onClose }) {
       )}
       <div style={{ position: 'absolute', top: 16, left: 16, right: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div className="tour-chip" style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none' }}>
-          {ready ? 'Drag to move · pinch or scroll to resize' : 'Starting camera…'}
+          {error ? 'Camera unavailable' : ready ? 'Drag to move · pinch or scroll to resize' : 'Starting camera…'}
         </div>
         <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 18, cursor: 'pointer' }}>×</button>
       </div>
@@ -707,23 +708,93 @@ function Nav({ tab, setTab }) {
 /* ============================================================
    STUDIO TAB (home)
    ============================================================ */
+/* ============================================================
+   HOME HERO — art-directed banner (different crop for mobile/desktop)
+   ============================================================ */
+function HomeHero({ onExplore }) {
+  return (
+    <section className="home-hero">
+      <picture>
+        <source media="(max-width: 720px)" srcSet="/hero/mobile.jpg" />
+        <img src="/hero/desktop.jpg" alt="" className="home-hero-img" />
+      </picture>
+      <div className="home-hero-panel crop"><div className="crop-b" />
+        <div className="eyebrow">Margarita's Digital Studio</div>
+        <h1>An end-to-end art provider — from first idea to the wall it hangs on</h1>
+        <p>Browse, commission, and buy original paintings, guided the whole way — all from one studio.</p>
+        <button className="btn-solid" onClick={onExplore}>Check exclusive pieces</button>
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================
+   NEWSLETTER / INTEREST SIGNUP — deliberately minimal
+   ============================================================ */
+function SignupForm() {
+  const [form, setForm] = useState({ name: '', email: '', intent: 'Browsing' });
+  const [status, setStatus] = useState('idle');
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim()) { setStatus('invalid'); return; }
+    setStatus('sending');
+    try {
+      const res = await fetch(NEWSLETTER_ENDPOINT, {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      setStatus(res.ok ? 'sent' : 'error');
+    } catch {
+      setStatus('error');
+    }
+  };
+
+  return (
+    <section className="section-narrow section-rule">
+      <div className="signup-box">
+        <div className="eyebrow">Stay in the loop</div>
+        <h2>Get first look at new work</h2>
+        <p className="lede" style={{ marginBottom: 24 }}>One quick form — no spam, just new pieces and studio news.</p>
+        <form className="signup-form" onSubmit={submit}>
+          <input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <select value={form.intent} onChange={(e) => setForm({ ...form, intent: e.target.value })}>
+            <option>Custom painting</option>
+            <option>Browsing</option>
+            <option>Just curious</option>
+          </select>
+          <button className="btn-solid" type="submit" disabled={status === 'sending'}>{status === 'sending' ? 'Signing up…' : 'Sign up'}</button>
+        </form>
+        {status === 'invalid' && <div className="form-note error">Name and email, please.</div>}
+        {status === 'sent' && <div className="form-note ok">You're on the list — thank you.</div>}
+        {status === 'error' && <div className="form-note error">Couldn't sign up just now — try again shortly.</div>}
+      </div>
+    </section>
+  );
+}
+
 function StudioTab({ onEnquire, goMargarita }) {
   const featured = ARTWORKS.filter((a) => a.featured);
+  const closerLookRef = useRef(null);
   return (
     <>
+      <HomeHero onExplore={() => closerLookRef.current?.scrollIntoView({ behavior: 'smooth' })} />
+
+      <section className="section-narrow" style={{ textAlign: 'center', paddingTop: 48 }}>
+        <h2 style={{ fontFamily: 'inherit', fontWeight: 500, letterSpacing: '-0.035em', fontSize: 'clamp(24px,3.4vw,34px)', margin: 0 }}>
+          What are you looking for?
+        </h2>
+      </section>
+
       <section className="reasons-hero-wrap">
         <ReasonsSwiper artworks={featured} onEnquire={onEnquire} />
       </section>
 
-      <section className="section-narrow">
-        <p className="lede">
-          {BRAND} is an online home for original paintings — a place to browse the way you would
-          in person, room by room, rather than scroll past thumbnails. Every piece here is available
-          to enquire about and buy directly.
-        </p>
-      </section>
+      <SignupForm />
 
-      <section className="section-wide section-rule">
+      <section className="section-wide section-rule" ref={closerLookRef}>
         <div className="section-head">
           <h2>A closer look</h2>
           <button className="link" onClick={() => document.dispatchEvent(new CustomEvent('go-artists'))}>View the full collection →</button>
@@ -789,6 +860,7 @@ function MargaritaTab({ prefill }) {
   };
 
   return (
+    <>
     <section className="section-narrow" style={{ paddingTop: 56 }}>
       <div className="margarita-grid">
         <div>
@@ -817,6 +889,24 @@ function MargaritaTab({ prefill }) {
         </div>
       </div>
     </section>
+
+    <section className="section-wide section-rule" style={{ paddingTop: 56 }}>
+      <div className="section-head">
+        <h2>Step into the virtual gallery</h2>
+      </div>
+      <p className="lede" style={{ textAlign: 'left', marginBottom: 24 }}>
+        Walk the collection room by room, before you ever pick up the phone.
+      </p>
+      <div className="tour-shell">
+        <MuseumTour
+          onEnquire={(artwork) => {
+            setForm((f) => ({ ...f, message: `I'm interested in "${artwork.title}" — could you tell me more?` }));
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+      </div>
+    </section>
+    </>
   );
 }
 
@@ -967,6 +1057,22 @@ export default function App() {
           .reasons-swiper .swiper-button-next, .reasons-swiper .swiper-button-prev { display:none; }
           .reason-caption { left:5%; right:5%; max-width:none; bottom:7%; padding:16px 18px; }
         }
+
+        /* Home hero banner ------------------------------------------------ */
+        .home-hero { position:relative; width:100%; height:min(80vh, 680px); min-height:420px; overflow:hidden; border-bottom:2px solid var(--ink); }
+        .home-hero-img { width:100%; height:100%; object-fit:cover; display:block; }
+        .home-hero-panel { position:absolute; left:5%; bottom:8%; max-width:460px; background:rgba(255,255,255,0.95); }
+        .home-hero-panel h1 { font-family:inherit; font-weight:500; letter-spacing:-0.04em; line-height:1.02; font-size:clamp(22px,3.4vw,34px); margin:0 0 12px; }
+        .home-hero-panel p { font-size:14px; color:var(--ink-soft); line-height:1.55; margin:0 0 18px; max-width:none; }
+        @media (max-width:720px){ .home-hero-panel { left:4%; right:4%; max-width:none; bottom:6%; padding:20px; } }
+
+        /* Minimal signup form ---------------------------------------------- */
+        .signup-box { text-align:center; }
+        .signup-form { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; max-width:640px; margin:0 auto; }
+        .signup-form input, .signup-form select { font:inherit; font-size:14px; padding:12px 13px; border:2px solid var(--ink); border-radius:0; color:var(--ink); background:#fff; flex:1 1 160px; min-width:140px; }
+        .signup-form input:focus, .signup-form select:focus { outline:2px solid var(--accent); outline-offset:2px; border-color:var(--accent); }
+        .signup-form button { flex:0 0 auto; }
+        @media (max-width:520px){ .signup-form { flex-direction:column; } .signup-form input, .signup-form select { width:100%; } }
       `}</style>
 
       <Nav tab={tab} setTab={setTab} />

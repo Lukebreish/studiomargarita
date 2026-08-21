@@ -86,7 +86,7 @@ export default function ReasonsSwiper({ artworks, onEnquire }) {
                 <p>{slide.copy}</p>
                 {painting && (
                   <button className="btn-outline btn-sm" onClick={() => onEnquire && onEnquire(painting)}>
-                    Enquire about "{painting.title}"
+                    Enquire about “{painting.title}”
                   </button>
                 )}
               </div>
