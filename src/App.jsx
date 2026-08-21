@@ -25,7 +25,16 @@ const ARTWORKS = [
   { id: 4, room: 2, wall: 'back', image: '/paintings/martyrs-square.jpg', aspect: 1020 / 510, title: "Martyrs' Square", artist: 'Margarita', meta: 'Oil on canvas', note: 'Beirut, mid-uprising — the city\'s landmarks held inside a sky full of colour and flight.', featured: false },
 ];
 
-const CONTACT_EMAIL = 'hello@studiomargarita.com'; // placeholder — swap for the real inbox
+const ARTISTS = [
+  { id: 'anastasiia', name: 'Anastasiia', country: 'Russia', image: '/artists/anastasiia.jpg' },
+  { id: 'rayan', name: 'Rayan', country: 'Australia', image: '/artists/rayan.jpg' },
+  { id: 'ellisar', name: 'Ellisar', country: 'Lebanon', image: '/artists/ellisar.jpg' },
+  { id: 'elizaveta', name: 'Elizaveta', country: 'Russia', image: '/artists/elizaveta.jpg' },
+];
+
+const ART_STYLES = ['Abstract', 'Portrait', 'Landscape', 'Figurative', 'Contemporary', 'Acrylic', 'Oil Painting', 'Realism', 'Impressionism', 'Digital Art'];
+
+const CONTACT_EMAIL = 'margartia@studiomargarita.art';
 const FORM_ENDPOINT = 'https://formspree.io/f/YOUR_FORM_ID'; // placeholder — create a free Formspree form and drop the ID in here
 const NEWSLETTER_ENDPOINT = 'https://formspree.io/f/YOUR_NEWSLETTER_FORM_ID'; // placeholder — a second Formspree form (or swap for Mailchimp/ConvertKit later)
 
@@ -719,10 +728,9 @@ function HomeHero({ onExplore }) {
         <img src="/hero/desktop.jpg" alt="" className="home-hero-img" />
       </picture>
       <div className="home-hero-panel crop"><div className="crop-b" />
-        <div className="eyebrow">Margarita's Digital Studio</div>
-        <h1>An end-to-end art provider — from first idea to the wall it hangs on</h1>
-        <p>Browse, commission, and buy original paintings, guided the whole way — all from one studio.</p>
-        <button className="btn-solid" onClick={onExplore}>Check exclusive pieces</button>
+        <h1>Welcome to Studio Margarita</h1>
+        <p>A digital gallery for discovering exceptional art and the artists behind it. Explore, connect, and find something that feels uniquely yours.</p>
+        <button className="btn-solid" onClick={onExplore}>View exclusive pieces</button>
       </div>
     </section>
   );
@@ -732,8 +740,19 @@ function HomeHero({ onExplore }) {
    NEWSLETTER / INTEREST SIGNUP — deliberately minimal
    ============================================================ */
 function SignupForm() {
-  const [form, setForm] = useState({ name: '', email: '', intent: 'Browsing' });
+  const [form, setForm] = useState({ name: '', email: '', styles: [] });
   const [status, setStatus] = useState('idle');
+
+  const toggleStyle = (style) => {
+    setForm((f) => {
+      if (style === 'All of the above') {
+        const allSelected = f.styles.length === ART_STYLES.length;
+        return { ...f, styles: allSelected ? [] : [...ART_STYLES] };
+      }
+      const has = f.styles.includes(style);
+      return { ...f, styles: has ? f.styles.filter((s) => s !== style) : [...f.styles, style] };
+    });
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -751,6 +770,8 @@ function SignupForm() {
     }
   };
 
+  const allChecked = form.styles.length === ART_STYLES.length;
+
   return (
     <section className="section-narrow section-rule">
       <div className="signup-box">
@@ -758,18 +779,62 @@ function SignupForm() {
         <h2>Get first look at new work</h2>
         <p className="lede" style={{ marginBottom: 24 }}>One quick form — no spam, just new pieces and studio news.</p>
         <form className="signup-form" onSubmit={submit}>
-          <input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <select value={form.intent} onChange={(e) => setForm({ ...form, intent: e.target.value })}>
-            <option>Custom painting</option>
-            <option>Browsing</option>
-            <option>Just curious</option>
-          </select>
+          <div className="signup-row">
+            <input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          </div>
+          <fieldset className="style-picker">
+            <legend>What styles catch your eye?</legend>
+            <div className="style-options">
+              {ART_STYLES.map((style) => (
+                <label key={style} className="style-check">
+                  <input type="checkbox" checked={form.styles.includes(style)} onChange={() => toggleStyle(style)} />
+                  {style}
+                </label>
+              ))}
+              <label className="style-check">
+                <input type="checkbox" checked={allChecked} onChange={() => toggleStyle('All of the above')} />
+                All of the above
+              </label>
+            </div>
+          </fieldset>
           <button className="btn-solid" type="submit" disabled={status === 'sending'}>{status === 'sending' ? 'Signing up…' : 'Sign up'}</button>
         </form>
         {status === 'invalid' && <div className="form-note error">Name and email, please.</div>}
         {status === 'sent' && <div className="form-note ok">You're on the list — thank you.</div>}
         {status === 'error' && <div className="form-note error">Couldn't sign up just now — try again shortly.</div>}
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================
+   COMMUNITY — auto-scrolling row of artist portraits
+   ============================================================ */
+function CommunityCarousel() {
+  const loop = [...ARTISTS, ...ARTISTS];
+  return (
+    <section className="section-wide section-rule">
+      <div style={{ textAlign: 'center' }}>
+        <h2 style={{ fontFamily: 'inherit', fontWeight: 500, letterSpacing: '-0.035em', fontSize: 'clamp(24px,3.4vw,34px)', margin: 0 }}>
+          Our community
+        </h2>
+        <p className="lede" style={{ marginTop: 10 }}>Our artists are from all over the world with a very diverse taste and talent.</p>
+      </div>
+      <div className="community-track-wrap">
+        <div className="community-track">
+          {loop.map((a, i) => (
+            <div className="community-item" key={`${a.id}-${i}`} aria-hidden={i >= ARTISTS.length ? 'true' : undefined}>
+              <div className="community-photo"><img src={a.image} alt={a.name} loading="lazy" /></div>
+              <div className="community-name">{a.name}</div>
+              <div className="community-country">{a.country}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ textAlign: 'center', marginTop: 32 }}>
+        {/* Links to the dedicated artist page once it's built */}
+        <button className="btn-outline">Meet the artist</button>
       </div>
     </section>
   );
@@ -809,6 +874,8 @@ function StudioTab({ onEnquire, goMargarita }) {
         <h2>Not sure which piece is right for the wall?</h2>
         <button className="btn-solid" onClick={goMargarita}>Get in touch</button>
       </div>
+
+      <CommunityCarousel />
     </>
   );
 }
@@ -860,7 +927,6 @@ function MargaritaTab({ prefill }) {
   };
 
   return (
-    <>
     <section className="section-narrow" style={{ paddingTop: 56 }}>
       <div className="margarita-grid">
         <div>
@@ -870,10 +936,8 @@ function MargaritaTab({ prefill }) {
           <div className="eyebrow">About</div>
           <h2 style={{ marginTop: 6 }}>Margarita</h2>
           <div className="bio">
-            <p>Margarita was born in Saint Petersburg — a city built on art, on grand facades and grander ambitions — and that sense of scale never left her. What began as a fascination with beautiful things became a life spent chasing them across the globe. Over forty countries, countless studios, auction houses, and quiet conversations with collectors who don't advertise what they own.</p>
-            <p>She has a rare gift: the room notices her before she says a word, and by the time she does, you're already listening. It's not performance — it's presence. People trust her instantly, artists open their private collections to her, and clients return to her again and again, not just for the art, but for her.</p>
-            <p>Margarita doesn't sell paintings. She reads people, then finds the piece that was always meant for them — a canvas that belongs on that wall, in that light, in that life. Her network spans continents, built one relationship at a time, in a language she speaks fluently no matter the country: taste.</p>
-            <p>She's available around the clock, wherever you are, ready to fly in, sit down, and talk about what moves you. And for those not ready to meet in person, she built something rare of her own — a virtual gallery where you can step inside her world and see, before you ever shake her hand, exactly why people trust her eye.</p>
+            <p>Born in Saint Petersburg, Margarita has spent her career chasing beautiful things across more than forty countries — studios, auction houses, and private collections most people never see.</p>
+            <p>She doesn't sell paintings. She reads people, then finds the piece that was always meant for them — available around the clock, wherever you are, to talk about what moves you.</p>
           </div>
 
           <form className="contact-form" onSubmit={submit}>
@@ -889,24 +953,6 @@ function MargaritaTab({ prefill }) {
         </div>
       </div>
     </section>
-
-    <section className="section-wide section-rule" style={{ paddingTop: 56 }}>
-      <div className="section-head">
-        <h2>Step into the virtual gallery</h2>
-      </div>
-      <p className="lede" style={{ textAlign: 'left', marginBottom: 24 }}>
-        Walk the collection room by room, before you ever pick up the phone.
-      </p>
-      <div className="tour-shell">
-        <MuseumTour
-          onEnquire={(artwork) => {
-            setForm((f) => ({ ...f, message: `I'm interested in "${artwork.title}" — could you tell me more?` }));
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-        />
-      </div>
-    </section>
-    </>
   );
 }
 
@@ -1059,20 +1105,38 @@ export default function App() {
         }
 
         /* Home hero banner ------------------------------------------------ */
-        .home-hero { position:relative; width:100%; height:min(80vh, 680px); min-height:420px; overflow:hidden; border-bottom:2px solid var(--ink); }
+        .home-hero { position:relative; width:100%; height:min(52vh, 460px); min-height:340px; overflow:hidden; border-bottom:2px solid var(--ink); }
         .home-hero-img { width:100%; height:100%; object-fit:cover; display:block; }
         .home-hero-panel { position:absolute; left:5%; bottom:8%; max-width:460px; background:rgba(255,255,255,0.95); }
         .home-hero-panel h1 { font-family:inherit; font-weight:500; letter-spacing:-0.04em; line-height:1.02; font-size:clamp(22px,3.4vw,34px); margin:0 0 12px; }
         .home-hero-panel p { font-size:14px; color:var(--ink-soft); line-height:1.55; margin:0 0 18px; max-width:none; }
-        @media (max-width:720px){ .home-hero-panel { left:4%; right:4%; max-width:none; bottom:6%; padding:20px; } }
+        @media (max-width:720px){ .home-hero { height:min(78vh, 660px); min-height:440px; } .home-hero-panel { left:4%; right:4%; max-width:none; bottom:6%; padding:20px; } }
 
         /* Minimal signup form ---------------------------------------------- */
         .signup-box { text-align:center; }
-        .signup-form { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; max-width:640px; margin:0 auto; }
-        .signup-form input, .signup-form select { font:inherit; font-size:14px; padding:12px 13px; border:2px solid var(--ink); border-radius:0; color:var(--ink); background:#fff; flex:1 1 160px; min-width:140px; }
-        .signup-form input:focus, .signup-form select:focus { outline:2px solid var(--accent); outline-offset:2px; border-color:var(--accent); }
-        .signup-form button { flex:0 0 auto; }
-        @media (max-width:520px){ .signup-form { flex-direction:column; } .signup-form input, .signup-form select { width:100%; } }
+        .signup-form { display:flex; flex-direction:column; gap:16px; max-width:520px; margin:0 auto; align-items:center; }
+        .signup-row { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; width:100%; }
+        .signup-row input { font:inherit; font-size:14px; padding:12px 13px; border:2px solid var(--ink); border-radius:0; color:var(--ink); background:#fff; flex:1 1 160px; min-width:140px; }
+        .signup-row input:focus { outline:2px solid var(--accent); outline-offset:2px; border-color:var(--accent); }
+        .style-picker { border:2px solid var(--ink); padding:14px 16px; width:100%; text-align:left; }
+        .style-picker legend { padding:0 6px; font-size:11px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-soft); }
+        .style-options { display:flex; flex-wrap:wrap; gap:10px 18px; margin-top:4px; }
+        .style-check { display:flex; align-items:center; gap:7px; font-size:13px; color:var(--ink); cursor:pointer; }
+        .style-check input { width:16px; height:16px; accent-color:var(--accent); cursor:pointer; }
+        @media (max-width:520px){ .signup-row { flex-direction:column; } .signup-row input { width:100%; flex:0 0 auto; } }
+
+        /* Community carousel ----------------------------------------------- */
+        .community-track-wrap { overflow:hidden; margin-top:40px; -webkit-mask-image:linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask-image:linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+        .community-track { display:flex; gap:56px; width:max-content; animation:communityScroll 32s linear infinite; }
+        .community-track-wrap:hover .community-track { animation-play-state:paused; }
+        .community-item { display:flex; flex-direction:column; align-items:center; width:140px; flex:0 0 auto; text-align:center; }
+        .community-photo { width:120px; height:120px; border-radius:50%; border:3px solid var(--accent); padding:4px; }
+        .community-photo img { width:100%; height:100%; object-fit:cover; border-radius:50%; display:block; }
+        .community-name { margin-top:14px; font-size:15px; font-weight:500; letter-spacing:-0.02em; }
+        .community-country { font-size:11px; color:var(--ink-soft); letter-spacing:0.08em; text-transform:uppercase; margin-top:2px; }
+        @keyframes communityScroll { from { transform:translateX(0); } to { transform:translateX(-50%); } }
+        @media (prefers-reduced-motion: reduce) { .community-track { animation:none; } }
+        @media (max-width:720px){ .community-item { width:110px; } .community-photo { width:92px; height:92px; } .community-track { gap:36px; } }
       `}</style>
 
       <Nav tab={tab} setTab={setTab} />
@@ -1089,7 +1153,11 @@ export default function App() {
             <button onClick={() => setTab('margarita')}>Margarita</button>
             <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
           </nav>
-          <div className="site-footer-bottom">{BRAND} — curated paintings, advisory &amp; sale.</div>
+          <div className="site-footer-bottom">
+            {BRAND} — curated paintings, advisory &amp; sale.
+            <br />
+            © 2026 Studio Margarita™. All rights reserved.
+          </div>
         </div>
       </footer>
     </div>
