@@ -25,12 +25,42 @@ const ARTWORKS = [
   { id: 4, room: 2, wall: 'back', image: '/paintings/martyrs-square.jpg', aspect: 1020 / 510, title: "Martyrs' Square", artist: 'Margarita', meta: 'Oil on canvas', note: 'Beirut, mid-uprising — the city\'s landmarks held inside a sky full of colour and flight.', featured: false },
 ];
 
+// note: a short curator's-note quote in Margarita's own voice, not a CV.
+// Placeholder copy below — replace with her actual words before this ships.
 const ARTISTS = [
-  { id: 'anastasiia', name: 'Anastasiia', country: 'Russia', image: '/artists/anastasiia.jpg' },
-  { id: 'rayan', name: 'Rayan', country: 'Australia', image: '/artists/rayan.jpg' },
-  { id: 'ellisar', name: 'Ellisar', country: 'Lebanon', image: '/artists/ellisar.jpg' },
-  { id: 'elizaveta', name: 'Elizaveta', country: 'Russia', image: '/artists/elizaveta.jpg' },
+  { id: 'anastasiia', name: 'Anastasiia', country: 'Russia', image: '/artists/anastasiia.jpg', note: "Anastasiia paints like she's arguing with the canvas — and winning. Placeholder note, replace with Margarita's words." },
+  { id: 'rayan', name: 'Rayan', country: 'Australia', image: '/artists/rayan.jpg', note: "There's a stillness in how Rayan builds a face, layer by layer, that most painters rush past. Placeholder note, replace with Margarita's words." },
+  { id: 'ellisar', name: 'Ellisar', country: 'Lebanon', image: '/artists/ellisar.jpg', note: "Ellisar's colour sense is fearless — she'll put two shades next to each other that shouldn't work, and they do. Placeholder note, replace with Margarita's words." },
+  { id: 'elizaveta', name: 'Elizaveta', country: 'Russia', image: '/artists/elizaveta.jpg', note: "Elizaveta has an eye for the quiet moment — the one everyone else would have cropped out. Placeholder note, replace with Margarita's words." },
 ];
+
+/* ============================================================
+   ARTIST ARTWORK — auto-discovered, zero code edits to add a piece.
+   Drop an image into src/assets/artist-works/<artist-id>/ and it
+   shows up on that artist's profile automatically. See README.md
+   "Adding artists and artwork" for the full workflow.
+   ============================================================ */
+const artistWorkFiles = import.meta.glob('/src/assets/artist-works/*/*.{jpg,jpeg,png,webp}', { eager: true, import: 'default' });
+// Optional per-piece metadata (price, size, medium — the fields a future
+// filterable catalog page will need) — drop a same-name .json next to the
+// image. Entirely optional: pieces without one just have those fields undefined.
+const artistWorkMeta = import.meta.glob('/src/assets/artist-works/*/*.json', { eager: true, import: 'default' });
+
+function titleFromFilename(path) {
+  const base = path.split('/').pop().replace(/\.[^.]+$/, '');
+  return base.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function worksByArtist(artistId) {
+  return Object.entries(artistWorkFiles)
+    .filter(([path]) => path.includes(`/artist-works/${artistId}/`))
+    .map(([path, src]) => {
+      const metaPath = path.replace(/\.[^.]+$/, '.json');
+      const meta = artistWorkMeta[metaPath] || {};
+      return { image: src, title: meta.title || titleFromFilename(path), ...meta };
+    })
+    .sort((a, b) => a.title.localeCompare(b.title));
+}
 
 const ART_STYLES = ['Abstract', 'Portrait', 'Landscape', 'Figurative', 'Contemporary', 'Acrylic', 'Oil Painting', 'Realism', 'Impressionism', 'Digital Art'];
 
@@ -697,7 +727,7 @@ function TryInRoom({ artwork, onClose }) {
 /* ============================================================
    NAV
    ============================================================ */
-function Nav({ tab, setTab }) {
+function Nav({ tabKey, setTab }) {
   const tabs = [['studio', 'Studio'], ['artists', 'Artists'], ['margarita', 'Margarita']];
   return (
     <header className="nav">
@@ -706,7 +736,7 @@ function Nav({ tab, setTab }) {
         <img src="/assets/symbol.svg" alt={BRAND} className="logo-symbol" onClick={() => setTab('studio')} />
         <nav className="tabs">
           {tabs.map(([key, label]) => (
-            <button key={key} className={'tab' + (tab === key ? ' active' : '')} onClick={() => setTab(key)}>{label}</button>
+            <button key={key} className={'tab' + (tabKey === key ? ' active' : '')} onClick={() => setTab(key)}>{label}</button>
           ))}
         </nav>
       </div>
@@ -809,38 +839,135 @@ function SignupForm() {
 }
 
 /* ============================================================
-   COMMUNITY — auto-scrolling row of artist portraits
+   ARTISTS CAROUSEL — auto-scrolling row of artist portraits,
+   teasing the full Artists directory (see ArtistsDirectory below)
    ============================================================ */
-function CommunityCarousel() {
+function ArtistsCarousel({ onSelectArtist, onSeeAll }) {
   const loop = [...ARTISTS, ...ARTISTS];
   return (
     <section className="section-wide section-rule">
       <div style={{ textAlign: 'center' }}>
         <h2 style={{ fontFamily: 'inherit', fontWeight: 500, letterSpacing: '-0.035em', fontSize: 'clamp(24px,3.4vw,34px)', margin: 0 }}>
-          Our community
+          Our Artists
         </h2>
         <p className="lede" style={{ marginTop: 10 }}>Our artists are from all over the world with a very diverse taste and talent.</p>
       </div>
       <div className="community-track-wrap">
         <div className="community-track">
           {loop.map((a, i) => (
-            <div className="community-item" key={`${a.id}-${i}`} aria-hidden={i >= ARTISTS.length ? 'true' : undefined}>
+            <button
+              type="button"
+              className="community-item"
+              key={`${a.id}-${i}`}
+              aria-hidden={i >= ARTISTS.length ? 'true' : undefined}
+              tabIndex={i >= ARTISTS.length ? -1 : 0}
+              onClick={() => onSelectArtist(a.id)}
+            >
               <div className="community-photo"><img src={a.image} alt={a.name} loading="lazy" /></div>
               <div className="community-name">{a.name}</div>
               <div className="community-country">{a.country}</div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
       <div style={{ textAlign: 'center', marginTop: 32 }}>
-        {/* Links to the dedicated artist page once it's built */}
-        <button className="btn-outline">Meet the artist</button>
+        <button className="btn-outline" onClick={onSeeAll}>Meet the artist</button>
       </div>
     </section>
   );
 }
 
-function StudioTab({ onEnquire, goMargarita }) {
+/* ============================================================
+   ARTISTS DIRECTORY — reached via "Meet the artist" (not in the
+   main nav, keeps Studio/Artists/Margarita uncluttered). A single
+   page: click a face and their story expands in place below the
+   grid — no navigation, no separate profile URL.
+   ============================================================ */
+function ArtistsDirectory({ onEnquire, initialSelected }) {
+  const [selectedId, setSelectedId] = useState(initialSelected || null);
+  const panelRef = useRef(null);
+
+  const worksByArtistId = useMemo(
+    () => Object.fromEntries(ARTISTS.map((a) => [a.id, worksByArtist(a.id)])),
+    []
+  );
+
+  const selected = ARTISTS.find((a) => a.id === selectedId) || null;
+  const selectedWorks = selected ? worksByArtistId[selected.id] : [];
+
+  const selectArtist = (id) => setSelectedId((current) => (current === id ? null : id));
+
+  useEffect(() => {
+    if (selectedId && panelRef.current) panelRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [selectedId]);
+
+  return (
+    <section className="section-wide" style={{ paddingTop: 56, paddingBottom: 56 }}>
+      <div className="section-head">
+        <h2>Our Artists</h2>
+      </div>
+      <p className="lede" style={{ marginBottom: 32 }}>Every artist in the Studio Margarita community — click a face for their story and available work.</p>
+
+      <div className="artist-directory-grid">
+        {ARTISTS.map((a) => (
+          <button
+            type="button"
+            className={'artist-directory-card' + (selectedId === a.id ? ' active' : '')}
+            key={a.id}
+            onClick={() => selectArtist(a.id)}
+            aria-pressed={selectedId === a.id}
+          >
+            <div className="artist-directory-photo"><img src={a.image} alt={a.name} loading="lazy" /></div>
+            <div className="artist-directory-name">{a.name}</div>
+            <div className="artist-directory-country">{a.country}</div>
+          </button>
+        ))}
+      </div>
+
+      {selected && (
+        <div className="artist-panel" ref={panelRef}>
+          <div className="artist-profile-head">
+            <div className="artist-profile-portrait">
+              <div className="artist-profile-ring"><img src={selected.image} alt={selected.name} /></div>
+              <div className="artist-profile-name">{selected.name}</div>
+              <div className="artist-profile-country">{selected.country}</div>
+            </div>
+            <div className="artist-profile-note">
+              <div className="eyebrow">Margarita on {selected.name}</div>
+              <blockquote>&ldquo;{selected.note}&rdquo;</blockquote>
+              <button className="link" onClick={() => setSelectedId(null)} style={{ marginTop: 18, alignSelf: 'flex-start' }}>Close ×</button>
+            </div>
+          </div>
+
+          <div style={{ paddingTop: 32 }}>
+            <div className="section-head">
+              <h3 style={{ fontFamily: 'inherit', fontWeight: 500, letterSpacing: '-0.03em', fontSize: 19, margin: 0 }}>Available from {selected.name}</h3>
+              {selectedWorks.length > 0 && <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{selectedWorks.length} piece{selectedWorks.length === 1 ? '' : 's'}</span>}
+            </div>
+            {selectedWorks.length > 0 ? (
+              <div className="grid">
+                {selectedWorks.map((w, i) => (
+                  <div className="card" key={i}>
+                    <div className="card-frame"><img src={w.image} alt={w.title} loading="lazy" /></div>
+                    <div className="card-title">{w.title}</div>
+                    <button className="btn-outline btn-sm" style={{ marginTop: 10 }} onClick={() => onEnquire({ title: w.title })}>Enquire to purchase</button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="artist-empty-state">
+                <p>No pieces from {selected.name} are listed for sale right now — enquire directly and Margarita will let you know what's available or coming soon.</p>
+                <button className="btn-solid" onClick={() => onEnquire({ title: `${selected.name}'s work` })}>Enquire about {selected.name}'s work</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function StudioTab({ onEnquire, goMargarita, onSelectArtist, onSeeAllArtists }) {
   const featured = ARTWORKS.filter((a) => a.featured);
   const closerLookRef = useRef(null);
   return (
@@ -875,7 +1002,7 @@ function StudioTab({ onEnquire, goMargarita }) {
         <button className="btn-solid" onClick={goMargarita}>Get in touch</button>
       </div>
 
-      <CommunityCarousel />
+      <ArtistsCarousel onSelectArtist={onSelectArtist} onSeeAll={onSeeAllArtists} />
     </>
   );
 }
@@ -962,6 +1089,11 @@ function MargaritaTab({ prefill }) {
 export default function App() {
   const [tab, setTab] = useState(() => (typeof window !== 'undefined' && window.location.hash.replace('#', '')) || 'studio');
   const [enquiry, setEnquiry] = useState(null);
+  // Which artist should already be expanded when the Our Artists page loads —
+  // set when arriving via a specific face on the home carousel. It's local
+  // state, not part of the route: the Artists page never changes URL when
+  // you pick an artist, it just expands in place.
+  const [pendingArtist, setPendingArtist] = useState(null);
 
   useEffect(() => { if (typeof window !== 'undefined') window.location.hash = tab; }, [tab]);
   useEffect(() => {
@@ -969,6 +1101,9 @@ export default function App() {
     document.addEventListener('go-artists', goArtists);
     return () => document.removeEventListener('go-artists', goArtists);
   }, []);
+
+  const goToArtist = (id) => { setPendingArtist(id); setTab('our-artists'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const goToArtistsDirectory = () => { setPendingArtist(null); setTab('our-artists'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
   const handleEnquire = (artwork) => {
     setEnquiry(artwork);
@@ -1129,7 +1264,7 @@ export default function App() {
         .community-track-wrap { overflow:hidden; margin-top:40px; -webkit-mask-image:linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask-image:linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
         .community-track { display:flex; gap:56px; width:max-content; animation:communityScroll 32s linear infinite; }
         .community-track-wrap:hover .community-track { animation-play-state:paused; }
-        .community-item { display:flex; flex-direction:column; align-items:center; width:140px; flex:0 0 auto; text-align:center; }
+        .community-item { display:flex; flex-direction:column; align-items:center; width:140px; flex:0 0 auto; text-align:center; background:none; border:none; padding:0; font:inherit; color:inherit; cursor:pointer; }
         .community-photo { width:120px; height:120px; border-radius:50%; border:3px solid var(--accent); padding:4px; }
         .community-photo img { width:100%; height:100%; object-fit:cover; border-radius:50%; display:block; }
         .community-name { margin-top:14px; font-size:15px; font-weight:500; letter-spacing:-0.02em; }
@@ -1137,12 +1272,37 @@ export default function App() {
         @keyframes communityScroll { from { transform:translateX(0); } to { transform:translateX(-50%); } }
         @media (prefers-reduced-motion: reduce) { .community-track { animation:none; } }
         @media (max-width:720px){ .community-item { width:110px; } .community-photo { width:92px; height:92px; } .community-track { gap:36px; } }
+
+        /* Artists directory + inline profile panel --------------------------- */
+        .artist-directory-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(160px,1fr)); gap:32px; }
+        .artist-directory-card { display:flex; flex-direction:column; align-items:center; text-align:center; background:none; border:none; padding:12px; font:inherit; color:inherit; cursor:pointer; border-radius:0; }
+        .artist-directory-photo { width:110px; height:110px; border-radius:50%; border:3px solid var(--accent); padding:4px; margin-bottom:12px; transition:transform 160ms ease, border-color 160ms ease; }
+        .artist-directory-card:hover .artist-directory-photo { transform:translateY(-3px); }
+        .artist-directory-photo img { width:100%; height:100%; object-fit:cover; border-radius:50%; display:block; }
+        .artist-directory-name { font-size:16px; font-weight:500; letter-spacing:-0.02em; }
+        .artist-directory-country { font-size:11px; color:var(--ink-soft); letter-spacing:0.1em; text-transform:uppercase; margin-top:3px; }
+        .artist-directory-card.active .artist-directory-photo { border-color:var(--accent-deep); }
+        .artist-directory-card.active .artist-directory-name { color:var(--accent); }
+
+        .artist-panel { border-top:2px solid var(--ink); margin-top:44px; }
+        .artist-profile-head { display:grid; grid-template-columns:260px 1fr; border:2px solid var(--ink); border-top:none; }
+        .artist-profile-portrait { border-right:2px solid var(--ink); padding:40px 32px; display:flex; flex-direction:column; align-items:center; text-align:center; justify-content:center; background:var(--accent-tint); }
+        .artist-profile-ring { width:150px; height:150px; border-radius:50%; border:3px solid var(--accent); padding:5px; margin-bottom:18px; background:var(--surface); }
+        .artist-profile-ring img { width:100%; height:100%; object-fit:cover; border-radius:50%; display:block; }
+        .artist-profile-name { font-family:inherit; font-weight:500; font-size:22px; letter-spacing:-0.02em; margin-bottom:3px; }
+        .artist-profile-country { font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--accent); font-weight:500; }
+        .artist-profile-note { padding:40px 44px; display:flex; flex-direction:column; justify-content:center; }
+        .artist-profile-note blockquote { margin:0; font-size:18px; line-height:1.55; letter-spacing:-0.005em; }
+        .artist-empty-state { border:2px dashed var(--rule); padding:44px 32px; text-align:center; }
+        .artist-empty-state p { font-size:14px; color:var(--ink-soft); line-height:1.65; max-width:460px; margin:0 auto 20px; }
+        @media (max-width:720px){ .artist-profile-head { grid-template-columns:1fr; } .artist-profile-portrait { border-right:none; border-bottom:2px solid var(--ink); } }
       `}</style>
 
-      <Nav tab={tab} setTab={setTab} />
-      {tab === 'studio' && <StudioTab onEnquire={handleEnquire} goMargarita={() => { setTab('margarita'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />}
+      <Nav tabKey={tab} setTab={setTab} />
+      {tab === 'studio' && <StudioTab onEnquire={handleEnquire} goMargarita={() => { setTab('margarita'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} onSelectArtist={goToArtist} onSeeAllArtists={goToArtistsDirectory} />}
       {tab === 'artists' && <ArtistsTab onEnquire={handleEnquire} />}
       {tab === 'margarita' && <MargaritaTab prefill={enquiry} />}
+      {tab === 'our-artists' && <ArtistsDirectory onEnquire={handleEnquire} initialSelected={pendingArtist} />}
 
       <footer className="site-footer">
         <div className="site-footer-inner">
