@@ -15,6 +15,7 @@ export const REASON_SLIDES = [
     background: '/scenes/emotional-connection.jpg',
     frameBox: { left: 31.17, top: 22.34, width: 37.55, height: 40.12 },
     onGlass: true,
+    cta: 'shop',
   },
   {
     id: 'investment',
@@ -22,6 +23,7 @@ export const REASON_SLIDES = [
     copy: 'Art as an asset — value that can grow with the right piece.',
     background: '/scenes/auction-house.jpg',
     frameBox: { left: 27.79, top: 23.48, width: 41.18, height: 45.98 },
+    cta: 'consult',
   },
   {
     id: 'status',
@@ -29,6 +31,7 @@ export const REASON_SLIDES = [
     copy: 'A statement of sophistication and cultural capital.',
     background: '/scenes/status-and-taste.jpg',
     frameBox: { left: 32.04, top: 22.26, width: 34.39, height: 36.63 },
+    cta: 'consult',
   },
   {
     id: 'interior',
@@ -36,10 +39,11 @@ export const REASON_SLIDES = [
     copy: 'The piece that pulls a whole room together.',
     background: '/scenes/interior-design.jpg',
     frameBox: { left: 28.13, top: 18.04, width: 42.19, height: 47.23 },
+    cta: 'shop',
   },
 ];
 
-export default function ReasonsSwiper({ artworks, onEnquire }) {
+export default function ReasonsSwiper({ artworks, onEnquire, onShopNow }) {
   const paintings = artworks && artworks.length ? artworks : [];
 
   return (
@@ -84,9 +88,14 @@ export default function ReasonsSwiper({ artworks, onEnquire }) {
               <div className="reason-caption" data-swiper-parallax="-30%">
                 <div className="eyebrow">{slide.title}</div>
                 <p>{slide.copy}</p>
-                {painting && (
+                {painting && slide.cta === 'shop' && (
+                  <button className="btn-outline btn-sm" onClick={() => onShopNow && onShopNow()}>
+                    Shop now
+                  </button>
+                )}
+                {painting && slide.cta === 'consult' && (
                   <button className="btn-outline btn-sm" onClick={() => onEnquire && onEnquire(painting)}>
-                    Enquire about “{painting.title}”
+                    Consult with Margarita
                   </button>
                 )}
               </div>

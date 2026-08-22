@@ -76,8 +76,6 @@ function useGalleryData() {
   return { artists, artworks, tourArtworks, worksByArtist, status };
 }
 
-const ART_STYLES = ['Abstract', 'Portrait', 'Landscape', 'Figurative', 'Contemporary', 'Acrylic', 'Oil Painting', 'Realism', 'Impressionism', 'Digital Art'];
-
 const CONTACT_EMAIL = 'margartia@studiomargarita.art';
 
 /* ============================================================
@@ -787,19 +785,8 @@ function HomeHero({ onExplore }) {
    NEWSLETTER / INTEREST SIGNUP — deliberately minimal
    ============================================================ */
 function SignupForm() {
-  const [form, setForm] = useState({ name: '', email: '', styles: [] });
+  const [form, setForm] = useState({ name: '', email: '' });
   const [status, setStatus] = useState('idle');
-
-  const toggleStyle = (style) => {
-    setForm((f) => {
-      if (style === 'All of the above') {
-        const allSelected = f.styles.length === ART_STYLES.length;
-        return { ...f, styles: allSelected ? [] : [...ART_STYLES] };
-      }
-      const has = f.styles.includes(style);
-      return { ...f, styles: has ? f.styles.filter((s) => s !== style) : [...f.styles, style] };
-    });
-  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -808,12 +795,9 @@ function SignupForm() {
     const { error } = await supabase.from('signups').insert({
       name: form.name,
       email: form.email,
-      style_preferences: form.styles,
     });
     setStatus(error ? 'error' : 'sent');
   };
-
-  const allChecked = form.styles.length === ART_STYLES.length;
 
   return (
     <section className="section-narrow section-rule">
@@ -826,21 +810,6 @@ function SignupForm() {
             <input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </div>
-          <fieldset className="style-picker">
-            <legend>What styles catch your eye?</legend>
-            <div className="style-options">
-              {ART_STYLES.map((style) => (
-                <label key={style} className="style-check">
-                  <input type="checkbox" checked={form.styles.includes(style)} onChange={() => toggleStyle(style)} />
-                  {style}
-                </label>
-              ))}
-              <label className="style-check">
-                <input type="checkbox" checked={allChecked} onChange={() => toggleStyle('All of the above')} />
-                All of the above
-              </label>
-            </div>
-          </fieldset>
           <button className="btn-solid" type="submit" disabled={status === 'sending'}>{status === 'sending' ? 'Signing up…' : 'Sign up'}</button>
         </form>
         {status === 'invalid' && <div className="form-note error">Name and email, please.</div>}
@@ -936,7 +905,7 @@ function ArtistsCarousel({ onSelectArtist, onSeeAll, onJoinTeam, artists }) {
         </div>
       </div>
       <div style={{ textAlign: 'center', marginTop: 32, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-        <button className="btn-outline" onClick={onSeeAll}>Meet the artist</button>
+        <button className="btn-outline" onClick={onSeeAll}>See all artists</button>
         <button className="btn-outline" onClick={onJoinTeam}>Join the team</button>
       </div>
     </section>
@@ -944,7 +913,7 @@ function ArtistsCarousel({ onSelectArtist, onSeeAll, onJoinTeam, artists }) {
 }
 
 /* ============================================================
-   ARTISTS DIRECTORY — reached via "Meet the artist" (not in the
+   ARTISTS DIRECTORY — reached via "See all artists" (not in the
    main nav, keeps Studio/Artists/Margarita uncluttered). A single
    page: click a face and their story expands in place below the
    grid — no navigation, no separate profile URL.
@@ -1170,7 +1139,7 @@ function JoinTeamForm() {
   );
 }
 
-function StudioTab({ onEnquire, goMargarita, onSelectArtist, onSeeAllArtists, onJoinTeam, artists, tourArtworks, worksByArtist }) {
+function StudioTab({ onEnquire, goMargarita, goShop, onSelectArtist, onSeeAllArtists, onJoinTeam, artists, tourArtworks, worksByArtist }) {
   const featured = tourArtworks.filter((a) => a.featured);
   // "A closer look" highlights 4 pieces across different artists (2 x 2, for
   // now Ellisar + Rayan) rather than reusing the tour's featured artworks —
@@ -1197,7 +1166,7 @@ function StudioTab({ onEnquire, goMargarita, onSelectArtist, onSeeAllArtists, on
       </section>
 
       <section className="reasons-hero-wrap">
-        <ReasonsSwiper artworks={featured} onEnquire={onEnquire} />
+        <ReasonsSwiper artworks={featured} onEnquire={onEnquire} onShopNow={goShop} />
       </section>
 
       <SignupForm />
@@ -1514,6 +1483,7 @@ export default function App() {
         .link:hover { border-bottom-color:var(--accent); }
 
         .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:32px; }
+        @media (max-width:640px){ .grid{ grid-template-columns:repeat(2,1fr); gap:16px; } }
         .card { display:flex; flex-direction:column; }
         .card-frame { position:relative; aspect-ratio:4/5; background:var(--rule); overflow:hidden; margin-bottom:14px; }
         .card:hover .card-frame { outline:2px solid var(--accent); outline-offset:6px; }
@@ -1603,11 +1573,6 @@ export default function App() {
         .signup-row { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; width:100%; }
         .signup-row input { font:inherit; font-size:14px; padding:12px 13px; border:2px solid var(--ink); border-radius:0; color:var(--ink); background:#fff; flex:1 1 160px; min-width:140px; }
         .signup-row input:focus { outline:2px solid var(--accent); outline-offset:2px; border-color:var(--accent); }
-        .style-picker { border:2px solid var(--ink); padding:14px 16px; width:100%; text-align:left; }
-        .style-picker legend { padding:0 6px; font-size:11px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-soft); }
-        .style-options { display:flex; flex-wrap:wrap; gap:10px 18px; margin-top:4px; }
-        .style-check { display:flex; align-items:center; gap:7px; font-size:13px; color:var(--ink); cursor:pointer; }
-        .style-check input { width:16px; height:16px; accent-color:var(--accent); cursor:pointer; }
         @media (max-width:520px){ .signup-row { flex-direction:column; } .signup-row input { width:100%; flex:0 0 auto; } }
 
         /* Community carousel — auto-scrolls via JS-driven scrollLeft, hands off
@@ -1677,7 +1642,7 @@ export default function App() {
       )}
       {gallery.status === 'ready' && (
         <>
-          {tab === 'studio' && <StudioTab onEnquire={handleEnquire} goMargarita={() => { setTab('margarita'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} onSelectArtist={goToArtist} onSeeAllArtists={goToArtistsDirectory} onJoinTeam={goToJoinTeam} artists={gallery.artists} tourArtworks={gallery.tourArtworks} worksByArtist={gallery.worksByArtist} />}
+          {tab === 'studio' && <StudioTab onEnquire={handleEnquire} goMargarita={() => { setTab('margarita'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} goShop={() => { setTab('art'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} onSelectArtist={goToArtist} onSeeAllArtists={goToArtistsDirectory} onJoinTeam={goToJoinTeam} artists={gallery.artists} tourArtworks={gallery.tourArtworks} worksByArtist={gallery.worksByArtist} />}
           {tab === 'artists' && <ArtistsDirectory onEnquire={handleEnquire} initialSelected={pendingArtist} artists={gallery.artists} worksByArtist={gallery.worksByArtist} />}
           {tab === 'art' && <ArtTab onEnquire={handleEnquire} artists={gallery.artists} artworks={gallery.artworks} />}
           {tab === 'margarita' && <MargaritaTab prefill={enquiry} />}
