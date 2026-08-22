@@ -740,12 +740,17 @@ function TryInRoom({ artwork, onClose }) {
    NAV
    ============================================================ */
 function Nav({ tabKey, setTab }) {
-  const tabs = [['studio', 'Studio'], ['artists', 'Artists'], ['art', 'Art'], ['margarita', 'Margarita']];
+  const tabs = [['studio', 'Studio'], ['art', 'Art'], ['artists', 'Artists'], ['margarita', 'Margarita']];
   return (
     <header className="nav">
       <div className="nav-inner">
-        <img src="/assets/logo-lockup.svg" alt={BRAND} className="logo-lockup" onClick={() => setTab('studio')} />
-        <img src="/assets/symbol.svg" alt={BRAND} className="logo-symbol" onClick={() => setTab('studio')} />
+        <a className="sm-logo logo-lockup" href="#" aria-label={BRAND} onClick={(e) => { e.preventDefault(); setTab('studio'); }}>
+          <span className="sm-logo-studio">Studio</span>
+          <span className="sm-logo-name">Margarita</span>
+        </a>
+        <a className="sm-logo sm-mark logo-symbol" href="#" aria-label={BRAND} onClick={(e) => { e.preventDefault(); setTab('studio'); }}>
+          <span className="sm-logo-mark">M</span>
+        </a>
         <nav className="tabs">
           {tabs.map(([key, label]) => (
             <button key={key} className={'tab' + (tabKey === key ? ' active' : '')} onClick={() => setTab(key)}>{label}</button>
@@ -852,6 +857,51 @@ function SignupForm() {
    ============================================================ */
 function ArtistsCarousel({ onSelectArtist, onSeeAll, onJoinTeam, artists }) {
   const loop = [...artists, ...artists];
+  const wrapRef = useRef(null);
+  const interacted = useRef(false); // once the visitor takes control, auto-scroll stops for good
+  const dragging = useRef(false);
+  const drag = useRef({ startX: 0, startScroll: 0, moved: 0 });
+
+  // Auto-scroll via real scrollLeft (not a CSS transform) so it and manual
+  // drag/swipe are the same coordinate system — no jump when handing off.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let raf, last;
+    const speed = 26; // px/sec
+    const tick = (now) => {
+      if (last === undefined) last = now;
+      const dt = (now - last) / 1000;
+      last = now;
+      if (!interacted.current && !dragging.current) {
+        const half = el.scrollWidth / 2;
+        el.scrollLeft = (el.scrollLeft + speed * dt) % half;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    const stopAuto = () => { interacted.current = true; };
+    el.addEventListener('touchstart', stopAuto, { passive: true });
+    el.addEventListener('wheel', stopAuto, { passive: true });
+    return () => { cancelAnimationFrame(raf); el.removeEventListener('touchstart', stopAuto); el.removeEventListener('wheel', stopAuto); };
+  }, []);
+
+  const onPointerDown = (e) => {
+    if (e.pointerType !== 'mouse') return; // touch gets native swipe scrolling for free
+    interacted.current = true;
+    dragging.current = true;
+    drag.current = { startX: e.clientX, startScroll: wrapRef.current.scrollLeft, moved: 0 };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e) => {
+    if (!dragging.current) return;
+    const dx = e.clientX - drag.current.startX;
+    drag.current.moved = Math.max(drag.current.moved, Math.abs(dx));
+    wrapRef.current.scrollLeft = drag.current.startScroll - dx;
+  };
+  const endDrag = () => { dragging.current = false; };
+  const handleSelect = (id) => { if (drag.current.moved < 6) onSelectArtist(id); };
+
   return (
     <section className="section-wide section-rule">
       <div style={{ textAlign: 'center' }}>
@@ -860,7 +910,14 @@ function ArtistsCarousel({ onSelectArtist, onSeeAll, onJoinTeam, artists }) {
         </h2>
         <p className="lede" style={{ marginTop: 10 }}>Our artists are from all over the world with a very diverse taste and talent.</p>
       </div>
-      <div className="community-track-wrap">
+      <div
+        className="community-track-wrap"
+        ref={wrapRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerLeave={endDrag}
+      >
         <div className="community-track">
           {loop.map((a, i) => (
             <button
@@ -869,9 +926,9 @@ function ArtistsCarousel({ onSelectArtist, onSeeAll, onJoinTeam, artists }) {
               key={`${a.id}-${i}`}
               aria-hidden={i >= artists.length ? 'true' : undefined}
               tabIndex={i >= artists.length ? -1 : 0}
-              onClick={() => onSelectArtist(a.id)}
+              onClick={() => handleSelect(a.id)}
             >
-              <div className="community-photo"><img src={a.image} alt={a.name} loading="lazy" /></div>
+              <div className="community-photo"><img src={a.image} alt={a.name} loading="lazy" draggable={false} /></div>
               <div className="community-name">{a.name}</div>
               <div className="community-country">{a.country}</div>
             </button>
@@ -1190,6 +1247,22 @@ function useCatalog(artworks) {
   );
 }
 
+// Collapses the raw medium strings in the database into a short, clickable
+// tag set — "Oil on canvas on compressed cardboard support" and "Oil on
+// linen" both become the one "Oil" tag, etc.
+function mediumGroup(medium) {
+  if (!medium) return 'Other';
+  const m = medium.toLowerCase();
+  if (m.includes('charcoal')) return 'Charcoal';
+  if (m.includes('digital')) return 'Digital';
+  if (m.includes('mixed media')) return 'Mixed media';
+  if (m.includes('acrylic')) return 'Acrylic';
+  if (m.includes('oil')) return 'Oil';
+  return 'Other';
+}
+
+const SORT_TAGS = [['featured', 'Featured'], ['price-asc', 'Price ↑'], ['price-desc', 'Price ↓']];
+
 function ArtTab({ onEnquire, artists, artworks }) {
   const catalog = useCatalog(artworks);
   const [artistFilter, setArtistFilter] = useState('all');
@@ -1198,13 +1271,13 @@ function ArtTab({ onEnquire, artists, artworks }) {
 
   const artistOptions = useMemo(() => artists.map((a) => a.name), [artists]);
   const mediumOptions = useMemo(
-    () => Array.from(new Set(catalog.map((i) => i.medium).filter(Boolean))).sort(),
+    () => Array.from(new Set(catalog.map((i) => mediumGroup(i.medium)))).sort(),
     [catalog]
   );
 
   const filtered = useMemo(() => {
     let items = catalog.filter(
-      (i) => (artistFilter === 'all' || i.artist === artistFilter) && (mediumFilter === 'all' || i.medium === mediumFilter)
+      (i) => (artistFilter === 'all' || i.artist === artistFilter) && (mediumFilter === 'all' || mediumGroup(i.medium) === mediumFilter)
     );
     if (sort === 'price-asc') items = [...items].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
     if (sort === 'price-desc') items = [...items].sort((a, b) => (b.price ?? -Infinity) - (a.price ?? -Infinity));
@@ -1212,43 +1285,43 @@ function ArtTab({ onEnquire, artists, artworks }) {
   }, [catalog, artistFilter, mediumFilter, sort]);
 
   const clearFilters = () => { setArtistFilter('all'); setMediumFilter('all'); };
+  const filtersActive = artistFilter !== 'all' || mediumFilter !== 'all';
 
   return (
-    <section className="section-wide" style={{ paddingTop: 56 }}>
-      <div className="section-head">
-        <h2>The Collection</h2>
-      </div>
-      <p className="lede" style={{ marginBottom: 32 }}>Every available piece across the Studio Margarita community — filter by artist or medium.</p>
-
-      <div className="shop-filters">
-        <label>
-          Artist
-          <select value={artistFilter} onChange={(e) => setArtistFilter(e.target.value)}>
-            <option value="all">All artists</option>
-            {artistOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
-        </label>
-        <label>
-          Medium
-          <select value={mediumFilter} onChange={(e) => setMediumFilter(e.target.value)}>
-            <option value="all">All mediums</option>
-            {mediumOptions.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
-        </label>
-        <label>
-          Sort
-          <select value={sort} onChange={(e) => setSort(e.target.value)}>
-            <option value="featured">Featured</option>
-            <option value="price-asc">Price: Low to High</option>
-            <option value="price-desc">Price: High to Low</option>
-          </select>
-        </label>
-        {(artistFilter !== 'all' || mediumFilter !== 'all') && (
-          <button className="link" onClick={clearFilters} style={{ alignSelf: 'center' }}>Clear filters</button>
-        )}
+    <section className="section-wide" style={{ paddingTop: 40 }}>
+      <div className="art-header">
+        <h2 style={{ margin: 0 }}>The Collection</h2>
+        <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{filtered.length} piece{filtered.length === 1 ? '' : 's'}{filtersActive ? <> · <button className="link" onClick={clearFilters} style={{ fontSize: 12 }}>clear</button></> : null}</span>
       </div>
 
-      <p style={{ fontSize: 12, color: 'var(--ink-soft)', margin: '20px 0' }}>{filtered.length} piece{filtered.length === 1 ? '' : 's'}</p>
+      <div className="filter-groups">
+        <div className="filter-group">
+          <span className="filter-group-label">Artist</span>
+          <div className="filter-chips">
+            <button type="button" className={'filter-chip' + (artistFilter === 'all' ? ' active' : '')} onClick={() => setArtistFilter('all')}>All</button>
+            {artistOptions.map((name) => (
+              <button type="button" key={name} className={'filter-chip' + (artistFilter === name ? ' active' : '')} onClick={() => setArtistFilter(name)}>{name}</button>
+            ))}
+          </div>
+        </div>
+        <div className="filter-group">
+          <span className="filter-group-label">Medium</span>
+          <div className="filter-chips">
+            <button type="button" className={'filter-chip' + (mediumFilter === 'all' ? ' active' : '')} onClick={() => setMediumFilter('all')}>All</button>
+            {mediumOptions.map((m) => (
+              <button type="button" key={m} className={'filter-chip' + (mediumFilter === m ? ' active' : '')} onClick={() => setMediumFilter(m)}>{m}</button>
+            ))}
+          </div>
+        </div>
+        <div className="filter-group">
+          <span className="filter-group-label">Sort</span>
+          <div className="filter-chips">
+            {SORT_TAGS.map(([key, label]) => (
+              <button type="button" key={key} className={'filter-chip' + (sort === key ? ' active' : '')} onClick={() => setSort(key)}>{label}</button>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {filtered.length > 0 ? (
         <div className="grid">
@@ -1376,7 +1449,7 @@ export default function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
         .site { --bg:#f6f4f4; --surface:#ffffff; --ink:#1a1416; --ink-soft:#6f6266; --rule:#d6cfd0;
-          --accent:#6b1f30; --accent-deep:#4a1420; --accent-tint:#f2e7ea; --rose:#e0c3ca; --radius:0;
+          --accent:#6b1f30; --accent-deep:#4a1420; --accent-tint:#f2e7ea; --accent-light:#d9a7b3; --rose:#e0c3ca; --radius:0;
           background:var(--bg); color:var(--ink); font-family:'Space Grotesk', system-ui, -apple-system, sans-serif; min-height:100vh; }
         .site * { box-sizing:border-box; }
         @keyframes tourPulse { 0%,100%{opacity:.6} 50%{opacity:1} }
@@ -1397,8 +1470,25 @@ export default function App() {
 
         .nav { position:sticky; top:0; z-index:20; background:var(--bg); border-bottom:2px solid var(--ink); }
         .nav-inner { max-width:1120px; margin:0 auto; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; }
-        .logo-lockup { height:42px; width:auto; display:block; cursor:pointer; }
-        .logo-symbol { display:none; height:30px; width:30px; cursor:pointer; }
+        /* Logo — pure CSS wordmark, no image asset needed above 16px. */
+        .sm-logo {
+          --tick: 0.42em; --tick-w: 0.08em;
+          position:relative; display:inline-flex; flex-direction:column;
+          padding:0.42em 0.47em; font-family:inherit; font-weight:500; line-height:0.9;
+          color:var(--ink); text-decoration:none; cursor:pointer;
+        }
+        .sm-logo::before, .sm-logo::after { content:''; position:absolute; width:var(--tick); height:var(--tick); border:0 solid var(--accent); }
+        .sm-logo::before { left:0; top:0; border-left-width:var(--tick-w); border-top-width:var(--tick-w); }
+        .sm-logo::after { right:0; bottom:0; border-right-width:var(--tick-w); border-bottom-width:var(--tick-w); }
+        .sm-logo-studio { color:var(--accent); letter-spacing:-0.04em; }
+        .sm-logo-name { letter-spacing:-0.05em; }
+        .sm-logo--reverse { color:#fff; }
+        .sm-logo--reverse::before, .sm-logo--reverse::after { border-color:var(--accent-light); }
+        .sm-logo--reverse .sm-logo-studio { color:var(--accent-light); }
+        .sm-mark .sm-logo-mark { letter-spacing:-0.06em; line-height:0.8; }
+
+        .logo-lockup { display:block; font-size:18px; }
+        .logo-symbol { display:none; font-size:16px; }
         .tabs { display:flex; gap:28px; }
         .tab { background:none; border:none; font-size:12px; font-weight:500; letter-spacing:0.14em; text-transform:uppercase;
           color:var(--ink-soft); cursor:pointer; padding:4px 0 6px; box-shadow: inset 0 -2px 0 transparent; }
@@ -1465,7 +1555,7 @@ export default function App() {
 
         .site-footer { background:var(--ink); color:#fff; padding:56px 24px 32px; margin-top:40px; }
         .site-footer-inner { max-width:1120px; margin:0 auto; display:flex; flex-direction:column; gap:28px; }
-        .site-footer .footer-logo { height:40px; width:auto; }
+        .site-footer .footer-logo { font-size:18px; align-self:flex-start; }
         .site-footer-links { display:flex; gap:24px; flex-wrap:wrap; }
         .site-footer-links a, .site-footer-links button { color:var(--rose); font-size:12px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase;
           background:none; border:none; padding:0; cursor:pointer; text-decoration:none; border-bottom:2px solid transparent; }
@@ -1520,17 +1610,20 @@ export default function App() {
         .style-check input { width:16px; height:16px; accent-color:var(--accent); cursor:pointer; }
         @media (max-width:520px){ .signup-row { flex-direction:column; } .signup-row input { width:100%; flex:0 0 auto; } }
 
-        /* Community carousel ----------------------------------------------- */
-        .community-track-wrap { overflow:hidden; margin-top:40px; -webkit-mask-image:linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask-image:linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
-        .community-track { display:flex; gap:56px; width:max-content; animation:communityScroll 32s linear infinite; }
-        .community-track-wrap:hover .community-track { animation-play-state:paused; }
+        /* Community carousel — auto-scrolls via JS-driven scrollLeft, hands off
+           to native touch swipe (mobile) or click-drag (desktop) the instant
+           the visitor touches it, permanently. Same coordinate system for
+           both, so there's no jump on handoff. ------------------------------ */
+        .community-track-wrap { overflow-x:auto; overflow-y:hidden; margin-top:40px; cursor:grab; scrollbar-width:none;
+          -webkit-mask-image:linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask-image:linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+        .community-track-wrap::-webkit-scrollbar { display:none; }
+        .community-track-wrap:active { cursor:grabbing; }
+        .community-track { display:flex; gap:56px; width:max-content; }
         .community-item { display:flex; flex-direction:column; align-items:center; width:140px; flex:0 0 auto; text-align:center; background:none; border:none; padding:0; font:inherit; color:inherit; cursor:pointer; }
         .community-photo { width:120px; height:120px; border-radius:50%; border:3px solid var(--accent); padding:4px; }
         .community-photo img { width:100%; height:100%; object-fit:cover; border-radius:50%; display:block; }
         .community-name { margin-top:14px; font-size:15px; font-weight:500; letter-spacing:-0.02em; }
         .community-country { font-size:11px; color:var(--ink-soft); letter-spacing:0.08em; text-transform:uppercase; margin-top:2px; }
-        @keyframes communityScroll { from { transform:translateX(0); } to { transform:translateX(-50%); } }
-        @media (prefers-reduced-motion: reduce) { .community-track { animation:none; } }
         @media (max-width:720px){ .community-item { width:110px; } .community-photo { width:92px; height:92px; } .community-track { gap:36px; } }
 
         /* Artists directory + inline profile panel --------------------------- */
@@ -1558,10 +1651,15 @@ export default function App() {
         @media (max-width:720px){ .artist-profile-head { grid-template-columns:1fr; } .artist-profile-portrait { border-right:none; border-bottom:2px solid var(--ink); } }
 
         /* Art catalog filters ------------------------------------------ */
-        .shop-filters { display:flex; gap:20px; flex-wrap:wrap; align-items:flex-end; }
-        .shop-filters label { font-size:11px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink-soft); display:flex; flex-direction:column; gap:7px; }
-        .shop-filters select { font:inherit; font-size:13px; padding:10px 12px; border:2px solid var(--ink); border-radius:0; color:var(--ink); background:#fff; min-width:170px; cursor:pointer; }
-        .shop-filters select:focus { outline:2px solid var(--accent); outline-offset:2px; border-color:var(--accent); }
+        .art-header { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+        .filter-groups { display:flex; flex-wrap:wrap; gap:20px 32px; margin:24px 0 32px; }
+        .filter-group { display:flex; flex-direction:column; gap:9px; min-width:0; }
+        .filter-group-label { font-size:10.5px; font-weight:500; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink-soft); }
+        .filter-chips { display:flex; flex-wrap:wrap; gap:8px; max-width:100%; }
+        .filter-chip { font-family:inherit; font-size:12px; font-weight:500; letter-spacing:0.02em; padding:7px 13px; border:2px solid var(--rule); border-radius:0; background:transparent; color:var(--ink-soft); cursor:pointer; white-space:nowrap; }
+        .filter-chip:hover { border-color:var(--accent); color:var(--accent); }
+        .filter-chip.active { border-color:var(--accent); background:var(--accent-tint); color:var(--accent); }
+        @media (max-width:520px){ .filter-groups{ gap:18px 24px; } .filter-chip{ padding:6px 11px; font-size:11.5px; } }
         .sold-badge { position:absolute; top:10px; left:10px; z-index:1; background:var(--ink); color:#fff; font-size:10px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase; padding:5px 9px; }
         .btn-outline:disabled, .btn-solid:disabled { opacity:0.4; cursor:not-allowed; }
         .btn-outline:disabled:hover { background:transparent; }
@@ -1588,11 +1686,14 @@ export default function App() {
 
       <footer className="site-footer">
         <div className="site-footer-inner">
-          <img src="/assets/logo-lockup-reversed.svg" alt={BRAND} className="footer-logo" />
+          <a className="sm-logo sm-logo--reverse footer-logo" href="#" aria-label={BRAND} onClick={(e) => { e.preventDefault(); setTab('studio'); }}>
+            <span className="sm-logo-studio">Studio</span>
+            <span className="sm-logo-name">Margarita</span>
+          </a>
           <nav className="site-footer-links">
             <button onClick={() => setTab('studio')}>Studio</button>
-            <button onClick={() => setTab('artists')}>Artists</button>
             <button onClick={() => setTab('art')}>Art</button>
+            <button onClick={() => setTab('artists')}>Artists</button>
             <button onClick={() => setTab('margarita')}>Margarita</button>
             <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
           </nav>
