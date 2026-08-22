@@ -21,6 +21,28 @@
 - **Memorable thing:** "I want something from this specific person" — the work
   leads, the artist behind it is the signature, not the headline.
 
+## Logo
+- **Construction:** a two-line wordmark inside a diagonal crop — "Studio"
+  above "Margarita" at identical size, differentiated by colour alone (burgundy
+  vs. ink). Two corner ticks, upper-left and lower-right, frame the block the
+  way crop marks frame a print — the ticks are never completed into a full
+  box. Implemented as pure CSS (`.sm-logo` in App.jsx) — no image asset above
+  16px.
+- **Construction values:** tick length 0.42em, tick weight 0.08em (min 2px),
+  clear space one tick length on all sides, line-height 0.9, tracking
+  Studio -0.04em / Margarita -0.05em.
+- **Colourways:** burgundy-on-white (default), on ink (`.sm-logo--reverse` —
+  "Studio" and the ticks switch to `--accent-light`), on burgundy.
+- **Compact mark:** below ~90px wide, swap to the bracketed "M" alone
+  (`.sm-mark` + `.sm-logo-mark`) — same ticks, same padding ratios. At 16px
+  and below (favicon/app-icon scale) the ticks drop entirely and the M sits
+  on a solid burgundy ground.
+- **Misuse:** never close the ticks into a full rectangle or add the other
+  two corners; never set the two words at different sizes or on one line;
+  no drop shadow, gradient, outline, or rotation; never place on a photo
+  without a solid panel behind it; never substitute the typeface or adjust
+  tracking.
+
 ## Typography
 - **Display/Hero & Body:** Space Grotesk (single family, used throughout —
   this is an established brand choice, not a fresh recommendation).
@@ -42,6 +64,7 @@
 - **Accent-deep (hover/active):** `#4a1420`
 - **Accent-tint (light burgundy fill):** `#f2e7ea`
 - **Rose (accent on dark grounds, e.g. footer links):** `#e0c3ca`
+- **Accent-light (logo ticks/"Studio" reversed on ink):** `#d9a7b3`
 - **Dark mode:** not implemented — the site is light-only by design (gallery
   wall / print reference doesn't have an obvious dark equivalent). Revisit only
   if a real user need appears.
