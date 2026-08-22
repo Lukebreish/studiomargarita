@@ -850,7 +850,7 @@ function SignupForm() {
    ARTISTS CAROUSEL — auto-scrolling row of artist portraits,
    teasing the full Artists directory (see ArtistsDirectory below)
    ============================================================ */
-function ArtistsCarousel({ onSelectArtist, onSeeAll, artists }) {
+function ArtistsCarousel({ onSelectArtist, onSeeAll, onJoinTeam, artists }) {
   const loop = [...artists, ...artists];
   return (
     <section className="section-wide section-rule">
@@ -878,8 +878,9 @@ function ArtistsCarousel({ onSelectArtist, onSeeAll, artists }) {
           ))}
         </div>
       </div>
-      <div style={{ textAlign: 'center', marginTop: 32 }}>
+      <div style={{ textAlign: 'center', marginTop: 32, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
         <button className="btn-outline" onClick={onSeeAll}>Meet the artist</button>
+        <button className="btn-outline" onClick={onJoinTeam}>Join the team</button>
       </div>
     </section>
   );
@@ -971,11 +972,69 @@ function ArtistsDirectory({ onEnquire, initialSelected, artists, worksByArtist }
           </div>
         </div>
       )}
+
+      <JoinTeamForm />
     </section>
   );
 }
 
-function StudioTab({ onEnquire, goMargarita, onSelectArtist, onSeeAllArtists, artists, tourArtworks, worksByArtist }) {
+/* ============================================================
+   JOIN THE TEAM — artist applications, a separate lead pipeline
+   from buyer enquiries (writes to artist_applications, not
+   enquiries). See supabase/migrations/003_artist_applications.sql.
+   ============================================================ */
+function JoinTeamForm() {
+  const [form, setForm] = useState({ name: '', email: '', country: '', portfolio: '', medium: '', statement: '' });
+  const [status, setStatus] = useState('idle');
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim() || !form.portfolio.trim()) { setStatus('invalid'); return; }
+    setStatus('sending');
+    const { error } = await supabase.from('artist_applications').insert({
+      name: form.name,
+      email: form.email,
+      country: form.country || null,
+      portfolio_url: form.portfolio,
+      medium: form.medium || null,
+      statement: form.statement || null,
+    });
+    setStatus(error ? 'error' : 'sent');
+  };
+
+  return (
+    <section id="join-team-form" style={{ marginTop: 72, paddingTop: 56, borderTop: '2px solid var(--ink)' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div className="eyebrow">Join the studio</div>
+        <h2 style={{ fontFamily: 'inherit', fontWeight: 500, letterSpacing: '-0.035em', fontSize: 'clamp(24px,3.4vw,34px)', margin: '0 0 10px' }}>Are you an artist?</h2>
+        <p className="lede" style={{ marginBottom: 24 }}>We're always looking for new voices to represent — tell us about your work.</p>
+      </div>
+      <form className="contact-form" onSubmit={submit} style={{ margin: '0 auto' }}>
+        <label>Name<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+        <label>Email<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
+        <label>Country<input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} /></label>
+        <label>Portfolio / Instagram / website link
+          <input value={form.portfolio} onChange={(e) => setForm({ ...form, portfolio: e.target.value })} placeholder="https://" />
+        </label>
+        <label>Primary medium
+          <select value={form.medium} onChange={(e) => setForm({ ...form, medium: e.target.value })}>
+            <option value="">Select one</option>
+            {ART_STYLES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </label>
+        <label>A few words about your work (optional)
+          <textarea rows={4} value={form.statement} onChange={(e) => setForm({ ...form, statement: e.target.value })} />
+        </label>
+        {status === 'invalid' && <div className="form-note error">Name, email, and a portfolio link are required.</div>}
+        {status === 'sent' && <div className="form-note ok">Thank you — Margarita will be in touch if it's a fit.</div>}
+        {status === 'error' && <div className="form-note error">Couldn't submit just now — try again shortly.</div>}
+        <button className="btn-solid" type="submit" disabled={status === 'sending'}>{status === 'sending' ? 'Submitting…' : 'Submit application'}</button>
+      </form>
+    </section>
+  );
+}
+
+function StudioTab({ onEnquire, goMargarita, onSelectArtist, onSeeAllArtists, onJoinTeam, artists, tourArtworks, worksByArtist }) {
   const featured = tourArtworks.filter((a) => a.featured);
   // "A closer look" highlights 4 pieces across different artists (2 x 2, for
   // now Ellisar + Rayan) rather than reusing the tour's featured artworks —
@@ -1023,7 +1082,7 @@ function StudioTab({ onEnquire, goMargarita, onSelectArtist, onSeeAllArtists, ar
         <button className="btn-solid" onClick={goMargarita}>Get in touch</button>
       </div>
 
-      <ArtistsCarousel onSelectArtist={onSelectArtist} onSeeAll={onSeeAllArtists} artists={artists} />
+      <ArtistsCarousel onSelectArtist={onSelectArtist} onSeeAll={onSeeAllArtists} onJoinTeam={onJoinTeam} artists={artists} />
     </>
   );
 }
@@ -1221,6 +1280,11 @@ export default function App() {
 
   const goToArtist = (id) => { setPendingArtist(id); setTab('artists'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const goToArtistsDirectory = () => { setPendingArtist(null); setTab('artists'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const goToJoinTeam = () => {
+    setPendingArtist(null);
+    setTab('artists');
+    setTimeout(() => document.getElementById('join-team-form')?.scrollIntoView({ behavior: 'smooth' }), 50);
+  };
 
   const handleEnquire = (artwork) => {
     setEnquiry(artwork);
@@ -1314,8 +1378,8 @@ export default function App() {
         .portrait-frame img { width:100%; display:block; }
         .contact-form { display:flex; flex-direction:column; gap:14px; margin-top:24px; max-width:420px; }
         .contact-form label { font-size:11px; font-weight:500; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-soft); display:flex; flex-direction:column; gap:7px; }
-        .contact-form input, .contact-form textarea { font:inherit; font-size:14px; padding:12px 13px; border:2px solid var(--ink); border-radius:0; color:var(--ink); background:#fff; resize:vertical; }
-        .contact-form input:focus, .contact-form textarea:focus { outline:2px solid var(--accent); outline-offset:2px; border-color:var(--accent); }
+        .contact-form input, .contact-form textarea, .contact-form select { font:inherit; font-size:14px; padding:12px 13px; border:2px solid var(--ink); border-radius:0; color:var(--ink); background:#fff; resize:vertical; }
+        .contact-form input:focus, .contact-form textarea:focus, .contact-form select:focus { outline:2px solid var(--accent); outline-offset:2px; border-color:var(--accent); }
         .form-note { font-size:12.5px; }
         .form-note.error { color:#a33; }
         .form-note.ok { color:#2f6b3d; }
@@ -1436,7 +1500,7 @@ export default function App() {
       )}
       {gallery.status === 'ready' && (
         <>
-          {tab === 'studio' && <StudioTab onEnquire={handleEnquire} goMargarita={() => { setTab('margarita'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} onSelectArtist={goToArtist} onSeeAllArtists={goToArtistsDirectory} artists={gallery.artists} tourArtworks={gallery.tourArtworks} worksByArtist={gallery.worksByArtist} />}
+          {tab === 'studio' && <StudioTab onEnquire={handleEnquire} goMargarita={() => { setTab('margarita'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} onSelectArtist={goToArtist} onSeeAllArtists={goToArtistsDirectory} onJoinTeam={goToJoinTeam} artists={gallery.artists} tourArtworks={gallery.tourArtworks} worksByArtist={gallery.worksByArtist} />}
           {tab === 'artists' && <ArtistsDirectory onEnquire={handleEnquire} initialSelected={pendingArtist} artists={gallery.artists} worksByArtist={gallery.worksByArtist} />}
           {tab === 'art' && <ArtTab onEnquire={handleEnquire} artists={gallery.artists} artworks={gallery.artworks} />}
           {tab === 'margarita' && <MargaritaTab prefill={enquiry} />}
