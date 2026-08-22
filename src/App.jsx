@@ -983,8 +983,74 @@ function ArtistsDirectory({ onEnquire, initialSelected, artists, worksByArtist }
    from buyer enquiries (writes to artist_applications, not
    enquiries). See supabase/migrations/003_artist_applications.sql.
    ============================================================ */
+// Canonical English values — always what's stored in Supabase, regardless
+// of which language the applicant fills the form in, so the exhibition_
+// history column stays consistent for whoever reviews applications.
+const EXHIBITION_HISTORY_OPTIONS = [
+  'Never exhibited/sold',
+  'Sold work informally (friends, social media, local markets)',
+  'Shown in a gallery or exhibition',
+  'Represented by a gallery/agent before',
+];
+
+// Add more languages here later — each entry just needs the same keys.
+const JOIN_TEAM_I18N = {
+  en: {
+    label: 'EN',
+    eyebrow: 'Join the studio',
+    title: 'Are you an artist?',
+    subtitle: "We're always looking for new voices to represent — tell us about your work.",
+    name: 'Name',
+    email: 'Email',
+    country: 'Country',
+    portfolio: 'Instagram, website, or portfolio link',
+    portfolioPlaceholder: '@yourhandle, a link, or anything that shows your work',
+    exhibition: 'Exhibition / sales history',
+    selectOne: 'Select one',
+    exhibitionOptions: [
+      'Never exhibited/sold',
+      'Sold work informally (friends, social media, local markets)',
+      'Shown in a gallery or exhibition',
+      'Represented by a gallery/agent before',
+    ],
+    statement: 'A few words about your work (optional)',
+    submit: 'Submit application',
+    submitting: 'Submitting…',
+    invalid: 'Name, email, and a portfolio link are required.',
+    sent: "Thank you — Margarita will be in touch if it's a fit.",
+    error: "Couldn't submit just now — try again shortly.",
+  },
+  ru: {
+    label: 'RU',
+    eyebrow: 'Присоединяйтесь к студии',
+    title: 'Вы художник?',
+    subtitle: 'Мы всегда ищем новые имена — расскажите нам о своей работе.',
+    name: 'Имя',
+    email: 'Email',
+    country: 'Страна',
+    portfolio: 'Instagram, сайт или ссылка на портфолио',
+    portfolioPlaceholder: '@ваш_ник, ссылка — что угодно, где видно ваши работы',
+    exhibition: 'Опыт выставок / продаж',
+    selectOne: 'Выберите вариант',
+    exhibitionOptions: [
+      'Никогда не выставлял(а) и не продавал(а) работы',
+      'Продавал(а) неофициально (друзьям, в соцсетях, на местных рынках)',
+      'Выставлялся(-лась) в галерее или на выставке',
+      'Ранее был(а) представлен(а) галереей/агентом',
+    ],
+    statement: 'Несколько слов о вашей работе (необязательно)',
+    submit: 'Отправить заявку',
+    submitting: 'Отправка…',
+    invalid: 'Имя, email и ссылка на портфолио обязательны.',
+    sent: 'Спасибо — Маргарита свяжется с вами, если это подходящий вариант.',
+    error: 'Не удалось отправить — попробуйте ещё раз чуть позже.',
+  },
+};
+
 function JoinTeamForm() {
-  const [form, setForm] = useState({ name: '', email: '', country: '', portfolio: '', medium: '', statement: '' });
+  const [lang, setLang] = useState('en');
+  const t = JOIN_TEAM_I18N[lang];
+  const [form, setForm] = useState({ name: '', email: '', country: '', portfolio: '', exhibitionHistory: '', statement: '' });
   const [status, setStatus] = useState('idle');
 
   const submit = async (e) => {
@@ -996,7 +1062,7 @@ function JoinTeamForm() {
       email: form.email,
       country: form.country || null,
       portfolio_url: form.portfolio,
-      medium: form.medium || null,
+      exhibition_history: form.exhibitionHistory || null,
       statement: form.statement || null,
     });
     setStatus(error ? 'error' : 'sent');
@@ -1005,30 +1071,43 @@ function JoinTeamForm() {
   return (
     <section id="join-team-form" style={{ marginTop: 72, paddingTop: 56, borderTop: '2px solid var(--ink)' }}>
       <div style={{ textAlign: 'center' }}>
-        <div className="eyebrow">Join the studio</div>
-        <h2 style={{ fontFamily: 'inherit', fontWeight: 500, letterSpacing: '-0.035em', fontSize: 'clamp(24px,3.4vw,34px)', margin: '0 0 10px' }}>Are you an artist?</h2>
-        <p className="lede" style={{ marginBottom: 24 }}>We're always looking for new voices to represent — tell us about your work.</p>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+          {Object.keys(JOIN_TEAM_I18N).map((code) => (
+            <button
+              key={code}
+              type="button"
+              className="tag"
+              style={lang === code ? undefined : { background: 'transparent', color: 'var(--ink-soft)', borderColor: 'var(--rule)' }}
+              onClick={() => setLang(code)}
+            >
+              {JOIN_TEAM_I18N[code].label}
+            </button>
+          ))}
+        </div>
+        <div className="eyebrow">{t.eyebrow}</div>
+        <h2 style={{ fontFamily: 'inherit', fontWeight: 500, letterSpacing: '-0.035em', fontSize: 'clamp(24px,3.4vw,34px)', margin: '0 0 10px' }}>{t.title}</h2>
+        <p className="lede" style={{ marginBottom: 24 }}>{t.subtitle}</p>
       </div>
       <form className="contact-form" onSubmit={submit} style={{ margin: '0 auto' }}>
-        <label>Name<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
-        <label>Email<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
-        <label>Country<input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} /></label>
-        <label>Portfolio / Instagram / website link
-          <input value={form.portfolio} onChange={(e) => setForm({ ...form, portfolio: e.target.value })} placeholder="https://" />
+        <label>{t.name}<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+        <label>{t.email}<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
+        <label>{t.country}<input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} /></label>
+        <label>{t.portfolio}
+          <input value={form.portfolio} onChange={(e) => setForm({ ...form, portfolio: e.target.value })} placeholder={t.portfolioPlaceholder} />
         </label>
-        <label>Primary medium
-          <select value={form.medium} onChange={(e) => setForm({ ...form, medium: e.target.value })}>
-            <option value="">Select one</option>
-            {ART_STYLES.map((s) => <option key={s} value={s}>{s}</option>)}
+        <label>{t.exhibition}
+          <select value={form.exhibitionHistory} onChange={(e) => setForm({ ...form, exhibitionHistory: e.target.value })}>
+            <option value="">{t.selectOne}</option>
+            {EXHIBITION_HISTORY_OPTIONS.map((value, i) => <option key={value} value={value}>{t.exhibitionOptions[i]}</option>)}
           </select>
         </label>
-        <label>A few words about your work (optional)
+        <label>{t.statement}
           <textarea rows={4} value={form.statement} onChange={(e) => setForm({ ...form, statement: e.target.value })} />
         </label>
-        {status === 'invalid' && <div className="form-note error">Name, email, and a portfolio link are required.</div>}
-        {status === 'sent' && <div className="form-note ok">Thank you — Margarita will be in touch if it's a fit.</div>}
-        {status === 'error' && <div className="form-note error">Couldn't submit just now — try again shortly.</div>}
-        <button className="btn-solid" type="submit" disabled={status === 'sending'}>{status === 'sending' ? 'Submitting…' : 'Submit application'}</button>
+        {status === 'invalid' && <div className="form-note error">{t.invalid}</div>}
+        {status === 'sent' && <div className="form-note ok">{t.sent}</div>}
+        {status === 'error' && <div className="form-note error">{t.error}</div>}
+        <button className="btn-solid" type="submit" disabled={status === 'sending'}>{status === 'sending' ? t.submitting : t.submit}</button>
       </form>
     </section>
   );
