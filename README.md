@@ -1,5 +1,27 @@
 # The Long Room — Virtual Gallery
 
+## Backend setup (Supabase) — do this once
+
+The site reads all artists/artworks from Supabase, and enquiries/newsletter
+signups write there too (that's your CRM). To set it up:
+
+1. Create a free project at [supabase.com](https://supabase.com).
+2. Open **SQL Editor** in your project, paste the contents of
+   `supabase/migrations/001_initial_schema.sql`, and run it. Then do the same
+   with `002_seed_existing_content.sql` to load the site's current artists
+   and artwork.
+3. Open **Project Settings → API**, copy the **Project URL** and the
+   **anon/public key**.
+4. Copy `.env.example` to `.env` in this folder and paste those two values in.
+5. Also add the same two variables in your Vercel project (**Settings →
+   Environment Variables**) so production builds can reach Supabase too.
+
+The anon key is meant to be public — it ships inside the site's JS bundle for
+every visitor. Row Level Security (defined in the migration) is what actually
+controls what it's allowed to do: read artists/artworks, insert enquiries and
+signups, nothing else. Never put the database password or the `service_role`
+key in `.env` or anywhere client-side.
+
 ## Run locally
 npm install
 npm run dev
@@ -22,67 +44,45 @@ npm run build
 
 ## Adding artists and artwork
 
-The Artists page (directory + individual profiles, reached via "Meet the artist")
-is split into two pieces that get updated differently — adding a new **artist**
-is a quick text edit, adding a new **piece of artwork** is drag-and-drop, no
-code required.
+Everything lives in Supabase now — no code, no git, no deploy needed. Open
+your project's **Table Editor** at supabase.com and:
 
 ### Add a new artist
 
-1. Add their portrait photo to `public/artists/<artist-id>.jpg`
-   (`<artist-id>` = their name, lowercase, no spaces — e.g. `sofia.jpg`).
-2. Open `src/App.jsx`, find the `ARTISTS` array near the top, and add a line:
-   ```js
-   { id: 'sofia', name: 'Sofia', country: 'Portugal', image: '/artists/sofia.jpg', note: "Margarita's one or two sentence take on Sofia's work, in her own voice." },
-   ```
-3. Create their (empty, for now) artwork folder:
-   ```
-   mkdir -p src/assets/artist-works/sofia
-   ```
-4. Rebuild/redeploy. Sofia now appears in the community carousel and the
-   Artists directory, with a working profile page.
+Add a row to the `artists` table:
+- `id` — a slug, lowercase, no spaces (e.g. `sofia`) — this is the shared key
+  used everywhere, so pick it once and don't change it later.
+- `name`, `country`
+- `image_url` — either `/artists/sofia.jpg` if you've added that file to
+  `public/artists/` in the repo, or a Supabase Storage URL if you uploaded
+  the portrait there (Storage tab → `artwork-images` bucket → upload → copy
+  the public URL).
+- `bio_note` — Margarita's one or two sentence take on their work, in her
+  voice.
 
-That `id` is the shared key everywhere — the folder name in step 3 must match
-it exactly.
+Sofia now appears in the community carousel and the Artists directory
+immediately — no rebuild needed, the site fetches this on every visit.
 
-### Add a new piece of artwork for an existing artist
+### Add a new piece of artwork
 
-Just drop the image file into that artist's folder:
+Add a row to the `artworks` table:
+- `artist_id` — must match an existing `artists.id` exactly.
+- `title`, `image_url` (same options as above — a repo file path, or a
+  Storage URL), `medium`, `size`, `price` (leave blank for "on enquiry").
+- `status` — `available` or `sold`.
+- `buy_now_enabled` — leave off (`false`) until Phase 2 (Stripe checkout)
+  ships; the site currently treats every piece as enquire-to-purchase
+  regardless of this flag.
 
-```
-src/assets/artist-works/<artist-id>/your-file-name.jpg
-```
+It shows up on that artist's profile page and in the Art catalog immediately.
 
-That's it — no code edit, no manifest to update. On the next build, it
-automatically appears on that artist's profile page with:
-- **Title**: generated from the filename (`midnight-study.jpg` → "Midnight
-  Study"). Use hyphens or underscores between words; capitalization is
-  handled for you.
-- **Enquire button**: wired automatically to the same contact flow as
-  everywhere else on the site.
+### The 5 pieces used in the 3D virtual tour
 
-This is why artwork lives under `src/assets/` instead of `public/` like the
-rest of the site's images — Vite can scan that folder at build time
-(`import.meta.glob`) and auto-discover whatever's inside it. Files dropped
-into `public/` require a manual code reference to ever appear anywhere; files
-dropped into `src/assets/artist-works/<artist-id>/` do not. If an artist has
-no artwork in their folder yet, their profile page shows an honest "enquire
-directly" message instead of an empty gallery grid.
+These are regular rows in `artworks`, just with `tour_room` (0/1/2),
+`tour_wall` (`left`/`right`/`back`), and `aspect` (image width ÷ height) also
+filled in. Leave those three columns blank for every other piece — they're
+what makes a piece appear in the 3D room walkthrough and the homepage hero
+reasons, on top of its artist's profile.
 
-**Scaling to a lot of pieces:** this pattern holds regardless of volume —
-whether an artist has 1 piece or 100, dropping files in the folder is the
-entire workflow.
-
-**Optional per-piece details (price, size, medium):** drop a JSON file next
-to the image with the same name — `your-file-name.json` next to
-`your-file-name.jpg` — with any of these fields:
-
-```json
-{ "title": "Midnight Study", "price": 1200, "size": "60 x 80 cm", "medium": "Oil on canvas" }
-```
-
-None of these are required, and none are displayed on the artist profile page
-yet — they exist now so that when the planned "ART" catalog page (the
-headless-commerce page with price/size/artist filters) gets built, the pieces
-that already have this data won't need to be touched again. `title` overrides
-the filename-generated one if you want something the filename can't express.
+See `supabase/migrations/001_initial_schema.sql` for the full schema and
+`002_seed_existing_content.sql` for a worked example of every field.
