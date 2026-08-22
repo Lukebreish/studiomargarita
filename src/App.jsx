@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import ReasonsSwiper from './ReasonsSwiper.jsx';
+import { supabase } from './lib/supabaseClient.js';
 
 /* ============================================================
    SHARED DATA
@@ -17,56 +18,67 @@ const PALETTES = [
   ['#191320', '#392a4a', '#71495c', '#ab5b66'],
 ];
 
-const ARTWORKS = [
-  { id: 0, room: 0, wall: 'left', image: '/paintings/behind-my-hand.jpg', aspect: 1058 / 732, title: 'Behind My Hand', artist: 'Ellisar', meta: 'Oil on canvas', note: 'A study in obscured self-portraiture — colour standing in for what the hand hides.', featured: true },
-  { id: 1, room: 0, wall: 'right', image: '/paintings/river-fable.jpg', aspect: 1076 / 744, title: 'River Fable', artist: 'Ellisar', meta: 'Acrylic on canvas', note: 'A dense, folkloric scene — figure, fish, and foliage read as one continuous body.', featured: true },
-  { id: 2, room: 1, wall: 'left', image: '/paintings/nocturne.jpg', aspect: 954 / 663, title: 'Nocturne', artist: 'Ellisar', meta: 'Digital painting', note: 'A single wing rendered in close, patient detail against the dark.', featured: true },
-  { id: 3, room: 1, wall: 'right', image: '/paintings/the-procession.jpg', aspect: 1101 / 619, title: 'The Procession', artist: 'Ellisar', meta: 'Oil on canvas', note: 'A crowd dissolves into colour and rhythm — movement painted as pattern.', featured: true },
-  { id: 4, room: 2, wall: 'back', image: '/paintings/martyrs-square.jpg', aspect: 1020 / 510, title: "Martyrs' Square", artist: 'Ellisar', meta: 'Oil on canvas', note: 'Beirut, mid-uprising — the city\'s landmarks held inside a sky full of colour and flight.', featured: false },
-];
-
-// note: a short curator's-note quote in Margarita's own voice, not a CV.
-// Placeholder copy below — replace with her actual words before this ships.
-const ARTISTS = [
-  { id: 'anastasiia', name: 'Anastasiia', country: 'Russia', image: '/artists/anastasiia.jpg', note: "Anastasiia paints like she's arguing with the canvas — and winning. Placeholder note, replace with Margarita's words." },
-  { id: 'rayan', name: 'Rayan', country: 'Australia', image: '/artists/rayan.jpg', note: "There's a stillness in how Rayan builds a face, layer by layer, that most painters rush past. Placeholder note, replace with Margarita's words." },
-  { id: 'ellisar', name: 'Ellisar', country: 'Lebanon', image: '/artists/ellisar.jpg', note: "Ellisar's colour sense is fearless — she'll put two shades next to each other that shouldn't work, and they do. Placeholder note, replace with Margarita's words." },
-  { id: 'elizaveta', name: 'Elizaveta', country: 'Russia', image: '/artists/elizaveta.jpg', note: "Elizaveta has an eye for the quiet moment — the one everyone else would have cropped out. Placeholder note, replace with Margarita's words." },
-];
-
 /* ============================================================
-   ARTIST ARTWORK — auto-discovered, zero code edits to add a piece.
-   Drop an image into src/assets/artist-works/<artist-id>/ and it
-   shows up on that artist's profile automatically. See README.md
-   "Adding artists and artwork" for the full workflow.
+   GALLERY DATA — fetched once from Supabase (artists + artworks
+   tables) instead of hardcoded. To add or edit an artist/piece, use
+   the Supabase dashboard (Table Editor) — no code changes or
+   deploys needed. See supabase/migrations/ for the schema and
+   README.md for the day-to-day editing workflow.
    ============================================================ */
-const artistWorkFiles = import.meta.glob('/src/assets/artist-works/*/*.{jpg,jpeg,png,webp}', { eager: true, import: 'default' });
-// Optional per-piece metadata (price, size, medium — the fields a future
-// filterable catalog page will need) — drop a same-name .json next to the
-// image. Entirely optional: pieces without one just have those fields undefined.
-const artistWorkMeta = import.meta.glob('/src/assets/artist-works/*/*.json', { eager: true, import: 'default' });
+function useGalleryData() {
+  const [artists, setArtists] = useState([]);
+  const [artworks, setArtworks] = useState([]);
+  const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
 
-function titleFromFilename(path) {
-  const base = path.split('/').pop().replace(/\.[^.]+$/, '');
-  return base.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [artistsRes, artworksRes] = await Promise.all([
+        supabase.from('artists').select('*').order('sort_order'),
+        supabase.from('artworks').select('*').order('sort_order'),
+      ]);
+      if (cancelled) return;
+      if (artistsRes.error || artworksRes.error) {
+        // eslint-disable-next-line no-console
+        console.error(artistsRes.error || artworksRes.error);
+        setStatus('error');
+        return;
+      }
+      const artistList = artistsRes.data.map((a) => ({ id: a.id, name: a.name, country: a.country, image: a.image_url, note: a.bio_note }));
+      const artistName = (id) => artistList.find((a) => a.id === id)?.name || id;
+      setArtists(artistList);
+      setArtworks(artworksRes.data.map((a) => ({
+        id: a.id,
+        artistId: a.artist_id,
+        artist: artistName(a.artist_id),
+        title: a.title,
+        image: a.image_url,
+        medium: a.medium,
+        meta: a.medium,
+        size: a.size,
+        price: a.price ?? undefined,
+        sold: a.status === 'sold',
+        buyNowEnabled: a.buy_now_enabled,
+        note: a.note,
+        featured: a.featured,
+        room: a.tour_room ?? undefined,
+        wall: a.tour_wall ?? undefined,
+        aspect: a.aspect ?? undefined,
+      })));
+      setStatus(cancelled ? 'loading' : 'ready');
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
-function worksByArtist(artistId) {
-  return Object.entries(artistWorkFiles)
-    .filter(([path]) => path.includes(`/artist-works/${artistId}/`))
-    .map(([path, src]) => {
-      const metaPath = path.replace(/\.[^.]+$/, '.json');
-      const meta = artistWorkMeta[metaPath] || {};
-      return { image: src, title: meta.title || titleFromFilename(path), ...meta };
-    })
-    .sort((a, b) => a.title.localeCompare(b.title));
+  const tourArtworks = useMemo(() => artworks.filter((a) => a.room !== undefined && a.room !== null), [artworks]);
+  const worksByArtist = (artistId) => artworks.filter((a) => a.artistId === artistId);
+
+  return { artists, artworks, tourArtworks, worksByArtist, status };
 }
 
 const ART_STYLES = ['Abstract', 'Portrait', 'Landscape', 'Figurative', 'Contemporary', 'Acrylic', 'Oil Painting', 'Realism', 'Impressionism', 'Digital Art'];
 
 const CONTACT_EMAIL = 'margartia@studiomargarita.art';
-const FORM_ENDPOINT = 'https://formspree.io/f/YOUR_FORM_ID'; // placeholder — create a free Formspree form and drop the ID in here
-const NEWSLETTER_ENDPOINT = 'https://formspree.io/f/YOUR_NEWSLETTER_FORM_ID'; // placeholder — a second Formspree form (or swap for Mailchimp/ConvertKit later)
 
 /* ============================================================
    PROCEDURAL PLACEHOLDER ART
@@ -202,7 +214,7 @@ function boxCollides(x, z, r, boxes) {
 const ROOM_W = 11, ROOM_D = 10, ROOMS = 3, WALL_H = 6, HALL_LEN = ROOM_D * ROOMS;
 const EYE_H = 1.7, PLAYER_R = 0.35, MOVE_SPEED = 3.4, ART_W = 2.3, ART_H = 1.55;
 
-function MuseumTour({ onEnquire }) {
+function MuseumTour({ onEnquire, artworks }) {
   const mountRef = useRef(null);
   const stateRef = useRef({
     started: false, panelOpen: false,
@@ -315,7 +327,7 @@ function MuseumTour({ onEnquire }) {
     buildWallZ(0, -HALL_LEN, ROOM_W, thickness);
     collidableBoxes.push({ minX: -ROOM_W / 2 - 1, maxX: ROOM_W / 2 + 1, minZ: -HALL_LEN - thickness, maxZ: -HALL_LEN + thickness });
 
-    ARTWORKS.forEach((info) => {
+    artworks.forEach((info) => {
       const roomCenterZ = -(info.room * ROOM_D + ROOM_D / 2);
       let x, z, rotY, spotOffsetX = 0, spotOffsetZ = 0;
       if (info.wall === 'left') { x = -ROOM_W / 2; z = roomCenterZ; rotY = Math.PI / 2; spotOffsetX = 1.4; }
@@ -429,7 +441,7 @@ function MuseumTour({ onEnquire }) {
     function interact() {
       if (st.panelOpen) return;
       if (st.hoveredId != null) {
-        const info = ARTWORKS.find((a) => a.id === st.hoveredId);
+        const info = artworks.find((a) => a.id === st.hoveredId);
         if (info) { st.panelOpen = true; setActive(info); }
       }
     }
@@ -788,16 +800,12 @@ function SignupForm() {
     e.preventDefault();
     if (!form.name.trim() || !form.email.trim()) { setStatus('invalid'); return; }
     setStatus('sending');
-    try {
-      const res = await fetch(NEWSLETTER_ENDPOINT, {
-        method: 'POST',
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      setStatus(res.ok ? 'sent' : 'error');
-    } catch {
-      setStatus('error');
-    }
+    const { error } = await supabase.from('signups').insert({
+      name: form.name,
+      email: form.email,
+      style_preferences: form.styles,
+    });
+    setStatus(error ? 'error' : 'sent');
   };
 
   const allChecked = form.styles.length === ART_STYLES.length;
@@ -842,8 +850,8 @@ function SignupForm() {
    ARTISTS CAROUSEL — auto-scrolling row of artist portraits,
    teasing the full Artists directory (see ArtistsDirectory below)
    ============================================================ */
-function ArtistsCarousel({ onSelectArtist, onSeeAll }) {
-  const loop = [...ARTISTS, ...ARTISTS];
+function ArtistsCarousel({ onSelectArtist, onSeeAll, artists }) {
+  const loop = [...artists, ...artists];
   return (
     <section className="section-wide section-rule">
       <div style={{ textAlign: 'center' }}>
@@ -859,8 +867,8 @@ function ArtistsCarousel({ onSelectArtist, onSeeAll }) {
               type="button"
               className="community-item"
               key={`${a.id}-${i}`}
-              aria-hidden={i >= ARTISTS.length ? 'true' : undefined}
-              tabIndex={i >= ARTISTS.length ? -1 : 0}
+              aria-hidden={i >= artists.length ? 'true' : undefined}
+              tabIndex={i >= artists.length ? -1 : 0}
               onClick={() => onSelectArtist(a.id)}
             >
               <div className="community-photo"><img src={a.image} alt={a.name} loading="lazy" /></div>
@@ -883,16 +891,16 @@ function ArtistsCarousel({ onSelectArtist, onSeeAll }) {
    page: click a face and their story expands in place below the
    grid — no navigation, no separate profile URL.
    ============================================================ */
-function ArtistsDirectory({ onEnquire, initialSelected }) {
+function ArtistsDirectory({ onEnquire, initialSelected, artists, worksByArtist }) {
   const [selectedId, setSelectedId] = useState(initialSelected || null);
   const panelRef = useRef(null);
 
   const worksByArtistId = useMemo(
-    () => Object.fromEntries(ARTISTS.map((a) => [a.id, worksByArtist(a.id)])),
-    []
+    () => Object.fromEntries(artists.map((a) => [a.id, worksByArtist(a.id)])),
+    [artists, worksByArtist]
   );
 
-  const selected = ARTISTS.find((a) => a.id === selectedId) || null;
+  const selected = artists.find((a) => a.id === selectedId) || null;
   const selectedWorks = selected ? worksByArtistId[selected.id] : [];
 
   const selectArtist = (id) => setSelectedId((current) => (current === id ? null : id));
@@ -909,7 +917,7 @@ function ArtistsDirectory({ onEnquire, initialSelected }) {
       <p className="lede" style={{ marginBottom: 32 }}>Every artist in the Studio Margarita community — click a face for their story and available work.</p>
 
       <div className="artist-directory-grid">
-        {ARTISTS.map((a) => (
+        {artists.map((a) => (
           <button
             type="button"
             className={'artist-directory-card' + (selectedId === a.id ? ' active' : '')}
@@ -950,7 +958,7 @@ function ArtistsDirectory({ onEnquire, initialSelected }) {
                   <div className="card" key={i}>
                     <div className="card-frame"><img src={w.image} alt={w.title} loading="lazy" /></div>
                     <div className="card-title">{w.title}</div>
-                    <button className="btn-outline btn-sm" style={{ marginTop: 10 }} onClick={() => onEnquire({ title: w.title })}>Enquire to purchase</button>
+                    <button className="btn-outline btn-sm" style={{ marginTop: 10 }} onClick={() => onEnquire({ id: w.id, title: w.title })}>Enquire to purchase</button>
                   </div>
                 ))}
               </div>
@@ -967,10 +975,10 @@ function ArtistsDirectory({ onEnquire, initialSelected }) {
   );
 }
 
-function StudioTab({ onEnquire, goMargarita, onSelectArtist, onSeeAllArtists }) {
-  const featured = ARTWORKS.filter((a) => a.featured);
+function StudioTab({ onEnquire, goMargarita, onSelectArtist, onSeeAllArtists, artists, tourArtworks, worksByArtist }) {
+  const featured = tourArtworks.filter((a) => a.featured);
   // "A closer look" highlights 4 pieces across different artists (2 x 2, for
-  // now Ellisar + Rayan) rather than reusing the tour's featured ARTWORKS —
+  // now Ellisar + Rayan) rather than reusing the tour's featured artworks —
   // swap the titles below to feature different pieces.
   const closerLook = useMemo(() => {
     const pick = (artistId, artistName, titles) =>
@@ -981,7 +989,7 @@ function StudioTab({ onEnquire, goMargarita, onSelectArtist, onSeeAllArtists }) 
       ...pick('ellisar', 'Ellisar', ['Genetically Modified II', 'Digital Painting II']),
       ...pick('rayan', 'Rayan', ['Reflection', 'Within']),
     ];
-  }, []);
+  }, [worksByArtist]);
   const closerLookRef = useRef(null);
   return (
     <>
@@ -1015,7 +1023,7 @@ function StudioTab({ onEnquire, goMargarita, onSelectArtist, onSeeAllArtists }) 
         <button className="btn-solid" onClick={goMargarita}>Get in touch</button>
       </div>
 
-      <ArtistsCarousel onSelectArtist={onSelectArtist} onSeeAll={onSeeAllArtists} />
+      <ArtistsCarousel onSelectArtist={onSelectArtist} onSeeAll={onSeeAllArtists} artists={artists} />
     </>
   );
 }
@@ -1024,46 +1032,33 @@ function StudioTab({ onEnquire, goMargarita, onSelectArtist, onSeeAllArtists }) 
    ARTISTS TAB
    ============================================================ */
 /* ============================================================
-   ART — headless-commerce catalog. Combines the hardcoded ARTWORKS
-   (used by the 3D tour and the homepage highlights) with every
-   artist's auto-discovered artist-works pieces into one filterable
-   collection (artist, medium, price sort).
+   ART — headless-commerce catalog. Every artwork (3D-tour pieces and
+   artist-profile pieces alike now live in one Supabase table) mapped
+   into one filterable collection (artist, medium, price sort).
    ============================================================ */
-function useCatalog() {
-  return useMemo(() => {
-    const tourItems = ARTWORKS.map((a) => ({
-      key: `tour-${a.id}`,
+function useCatalog(artworks) {
+  return useMemo(
+    () => artworks.map((a) => ({
+      key: a.id,
       image: a.image,
       title: a.title,
       artist: a.artist,
-      medium: a.meta,
-      price: undefined,
-      size: undefined,
-      sold: false,
-    }));
-    const artistItems = ARTISTS.flatMap((artist) =>
-      worksByArtist(artist.id).map((w, i) => ({
-        key: `${artist.id}-${i}-${w.title}`,
-        image: w.image,
-        title: w.title,
-        artist: artist.name,
-        medium: w.medium,
-        price: w.price,
-        size: w.size,
-        sold: !!w.sold,
-      }))
-    );
-    return [...tourItems, ...artistItems];
-  }, []);
+      medium: a.medium,
+      price: a.price,
+      size: a.size,
+      sold: !!a.sold,
+    })),
+    [artworks]
+  );
 }
 
-function ArtTab({ onEnquire }) {
-  const catalog = useCatalog();
+function ArtTab({ onEnquire, artists, artworks }) {
+  const catalog = useCatalog(artworks);
   const [artistFilter, setArtistFilter] = useState('all');
   const [mediumFilter, setMediumFilter] = useState('all');
   const [sort, setSort] = useState('featured');
 
-  const artistOptions = useMemo(() => ARTISTS.map((a) => a.name), []);
+  const artistOptions = useMemo(() => artists.map((a) => a.name), [artists]);
   const mediumOptions = useMemo(
     () => Array.from(new Set(catalog.map((i) => i.medium).filter(Boolean))).sort(),
     [catalog]
@@ -1131,7 +1126,7 @@ function ArtTab({ onEnquire }) {
                 <span className="card-meta">{[item.medium, item.size].filter(Boolean).join(' · ') || '—'}</span>
                 <span className="card-meta">{item.price ? `$${item.price.toLocaleString()}` : 'On enquiry'}</span>
               </div>
-              <button className="btn-outline btn-sm" disabled={item.sold} onClick={() => onEnquire({ title: item.title })}>
+              <button className="btn-outline btn-sm" disabled={item.sold} onClick={() => onEnquire({ id: item.key, title: item.title })}>
                 {item.sold ? 'Sold' : 'Enquire to purchase'}
               </button>
             </div>
@@ -1164,16 +1159,14 @@ function MargaritaTab({ prefill }) {
     e.preventDefault();
     if (!form.name.trim() || !form.email.trim() || !form.message.trim()) { setStatus('invalid'); return; }
     setStatus('sending');
-    try {
-      const res = await fetch(FORM_ENDPOINT, {
-        method: 'POST',
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      setStatus(res.ok ? 'sent' : 'error');
-    } catch {
-      setStatus('error');
-    }
+    const { error } = await supabase.from('enquiries').insert({
+      artwork_id: prefill?.id || null,
+      artwork_title: prefill?.title || null,
+      name: form.name,
+      email: form.email,
+      message: form.message,
+    });
+    setStatus(error ? 'error' : 'sent');
   };
 
   return (
@@ -1212,6 +1205,7 @@ function MargaritaTab({ prefill }) {
 export default function App() {
   const [tab, setTab] = useState(() => (typeof window !== 'undefined' && window.location.hash.replace('#', '')) || 'studio');
   const [enquiry, setEnquiry] = useState(null);
+  const gallery = useGalleryData();
   // Which artist should already be expanded when the Our Artists page loads —
   // set when arriving via a specific face on the home carousel. It's local
   // state, not part of the route: the Artists page never changes URL when
@@ -1431,10 +1425,23 @@ export default function App() {
       `}</style>
 
       <Nav tabKey={tab} setTab={setTab} />
-      {tab === 'studio' && <StudioTab onEnquire={handleEnquire} goMargarita={() => { setTab('margarita'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} onSelectArtist={goToArtist} onSeeAllArtists={goToArtistsDirectory} />}
-      {tab === 'artists' && <ArtistsDirectory onEnquire={handleEnquire} initialSelected={pendingArtist} />}
-      {tab === 'art' && <ArtTab onEnquire={handleEnquire} />}
-      {tab === 'margarita' && <MargaritaTab prefill={enquiry} />}
+      {gallery.status === 'loading' && (
+        <div style={{ padding: '96px 24px', textAlign: 'center', color: 'var(--ink-soft)' }}>Loading the collection…</div>
+      )}
+      {gallery.status === 'error' && (
+        <div style={{ padding: '96px 24px', textAlign: 'center', color: 'var(--ink-soft)' }}>
+          Couldn't load the collection right now — check back shortly, or if you're the site owner, check
+          the Supabase connection (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).
+        </div>
+      )}
+      {gallery.status === 'ready' && (
+        <>
+          {tab === 'studio' && <StudioTab onEnquire={handleEnquire} goMargarita={() => { setTab('margarita'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} onSelectArtist={goToArtist} onSeeAllArtists={goToArtistsDirectory} artists={gallery.artists} tourArtworks={gallery.tourArtworks} worksByArtist={gallery.worksByArtist} />}
+          {tab === 'artists' && <ArtistsDirectory onEnquire={handleEnquire} initialSelected={pendingArtist} artists={gallery.artists} worksByArtist={gallery.worksByArtist} />}
+          {tab === 'art' && <ArtTab onEnquire={handleEnquire} artists={gallery.artists} artworks={gallery.artworks} />}
+          {tab === 'margarita' && <MargaritaTab prefill={enquiry} />}
+        </>
+      )}
 
       <footer className="site-footer">
         <div className="site-footer-inner">
